@@ -11,6 +11,7 @@ import {
 import { APP_VERSION } from '../changelog'
 import { useSettings } from '../contexts/SettingsContext'
 import type { PageKey } from '../types'
+import { Avatar } from './Avatar'
 
 interface SidebarProps {
   page: PageKey
@@ -64,7 +65,7 @@ export function Sidebar({ page, onNavigate, onShowUpdateLog }: SidebarProps) {
 
       <div className="sidebar-footer">
         <button className="profile-chip" onClick={() => onNavigate('settings')}>
-          <span className="avatar avatar-sm">{settings.avatar}</span>
+          <Avatar value={settings.avatar} className="avatar-sm" />
           <span className="profile-meta">
             <strong>{settings.nickname || '小拾'}</strong>
             <small>{settings.bio || '记录每一天，也记录成长。'}</small>

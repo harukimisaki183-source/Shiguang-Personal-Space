@@ -43,6 +43,7 @@ import {
 } from '../skills'
 import type { Chat, ChatMessage, DayCard, Skill } from '../types'
 import { copyText, formatChatTime, formatRelativeTime } from '../utils'
+import { AvatarVisual } from '../components/Avatar'
 import { CardLibrary } from '../components/chat/CardLibrary'
 import { CardStudio } from '../components/chat/CardStudio'
 import { SkillEditorModal } from '../components/chat/SkillEditorModal'
@@ -101,7 +102,11 @@ function MessageBubble({
           </button>
         </div>
       </div>
-      {isUser && <span className="msg-avatar user-avatar">{avatar}</span>}
+      {isUser && (
+        <span className="msg-avatar user-avatar">
+          <AvatarVisual value={avatar} />
+        </span>
+      )}
     </div>
   )
 }

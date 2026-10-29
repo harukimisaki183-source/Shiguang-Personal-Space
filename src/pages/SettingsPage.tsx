@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   HardDrive,
+  ImagePlus,
   Info,
   KeyRound,
   Loader2,
@@ -16,6 +17,7 @@ import {
   Music2,
   NotebookPen,
   Palette,
+  Plus,
   RefreshCw,
   RotateCcw,
   Save,
@@ -25,17 +27,20 @@ import {
   Trash2,
   Upload,
   User,
+  X,
 } from 'lucide-react'
 import { APP_VERSION } from '../changelog'
 import { exportBackup, restoreBackup } from '../backup'
+import { Avatar, isImageAvatar } from '../components/Avatar'
+import { Modal } from '../components/Modal'
 import { useConfirm } from '../contexts/ConfirmContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useToast } from '../contexts/ToastContext'
 import { clearAllContent, getContentCounts, getStorageStats } from '../db'
 import { testConnection } from '../llm'
-import { DEFAULT_SETTINGS } from '../storage'
+import { DEFAULT_SETTINGS, normalizeCustomProviders } from '../storage'
 import type { Settings } from '../types'
-import { formatBytes } from '../utils'
+import { createAvatarDataUrl, formatBytes, uid } from '../utils'
 
 interface SettingsPageProps {
   onShowUpdateLog: () => void
@@ -77,7 +82,11 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
   const [importing, setImporting] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [storage, setStorage] = useState({ usage: 0, quota: 0 })
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [providerModalOpen, setProviderModalOpen] = useState(false)
+  const [providerForm, setProviderForm] = useState({ name: '', baseUrl: '', model: '' })
   const importInputRef = useRef<HTMLInputElement>(null)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const emptyCounts = {
     notes: 0,
@@ -111,6 +120,79 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
   function chooseTheme(theme: 'light' | 'dark') {
     patch({ theme })
     updateSettings({ theme })
+  }
+
+  async function handleAvatarFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setAvatarUploading(true)
+    try {
+      const dataUrl = await createAvatarDataUrl(file)
+      patch({ avatar: dataUrl })
+      showToast('头像已更新，记得保存设置', 'success')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '头像处理失败', 'error')
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
+  function guessProviderName(baseUrl: string): string {
+    try {
+      return new URL(baseUrl).hostname.replace(/^api\./, '') || '自定义服务'
+    } catch {
+      return '自定义服务'
+    }
+  }
+
+  function openProviderModal() {
+    setProviderForm({
+      name: guessProviderName(form.baseUrl),
+      baseUrl: form.baseUrl,
+      model: form.model,
+    })
+    setProviderModalOpen(true)
+  }
+
+  function addProvider() {
+    const baseUrl = providerForm.baseUrl.trim().replace(/\/+$/, '')
+    const model = providerForm.model.trim()
+    const name = (providerForm.name.trim() || guessProviderName(baseUrl)).slice(0, 24)
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      showToast('API Base URL 需要以 http:// 或 https:// 开头', 'error')
+      return
+    }
+    if (!model) {
+      showToast('请填写模型名', 'error')
+      return
+    }
+    const exists = [...PROVIDERS, ...form.customProviders].find(
+      (provider) => provider.baseUrl.replace(/\/+$/, '') === baseUrl && provider.model === model,
+    )
+    if (exists) {
+      patch({ baseUrl, model })
+      setProviderModalOpen(false)
+      showToast(`已填入现有的「${exists.name}」`, 'success')
+      return
+    }
+    if (form.customProviders.length >= 12) {
+      showToast('快速填入最多保存 12 个自定义地址', 'error')
+      return
+    }
+    const provider = { id: uid(), name, baseUrl, model }
+    const customProviders = [...form.customProviders, provider]
+    patch({ customProviders, baseUrl, model })
+    updateSettings({ customProviders, baseUrl, model })
+    setProviderModalOpen(false)
+    showToast(`已加入快速填入：${name}`, 'success')
+  }
+
+  function removeProvider(providerId: string, name: string) {
+    const customProviders = form.customProviders.filter((provider) => provider.id !== providerId)
+    patch({ customProviders })
+    updateSettings({ customProviders })
+    showToast(`已移除快速填入「${name}」`, 'success')
   }
 
   function save() {
@@ -164,7 +246,15 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
     try {
       const result = await restoreBackup(file)
       if (result.settings) {
-        const merged = { ...form, ...result.settings, apiKey: form.apiKey }
+        const merged = {
+          ...form,
+          ...result.settings,
+          apiKey: form.apiKey,
+          customProviders:
+            result.settings.customProviders !== undefined
+              ? normalizeCustomProviders(result.settings.customProviders)
+              : form.customProviders,
+        }
         setForm(merged)
         updateSettings(merged)
       }
@@ -230,20 +320,52 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
             </div>
 
             <div className="avatar-picker">
-              <span className="avatar avatar-xl">{form.avatar}</span>
-              <div>
+              <Avatar value={form.avatar} className="avatar-xl" />
+              <div className="avatar-picker-main">
                 <span className="field-label">选择头像</span>
                 <div className="avatar-options">
                   {AVATARS.map((item) => (
                     <button
                       key={item}
-                      className={`avatar-option ${form.avatar === item ? 'active' : ''}`}
+                      className={`avatar-option ${
+                        form.avatar === item && !isImageAvatar(form.avatar) ? 'active' : ''
+                      }`}
                       onClick={() => patch({ avatar: item })}
                       aria-label={`选择头像 ${item}`}
                     >
                       {item}
                     </button>
                   ))}
+                </div>
+                <div className="avatar-upload-row">
+                  <button
+                    className="btn btn-subtle btn-sm"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={avatarUploading}
+                  >
+                    {avatarUploading ? (
+                      <Loader2 size={14} className="spin" />
+                    ) : (
+                      <ImagePlus size={14} />
+                    )}
+                    {avatarUploading ? '处理中…' : '上传本地图片'}
+                  </button>
+                  {isImageAvatar(form.avatar) && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => patch({ avatar: DEFAULT_SETTINGS.avatar })}
+                    >
+                      <RotateCcw size={14} /> 恢复 emoji
+                    </button>
+                  )}
+                  <span className="field-hint">自动裁成正方形，保存后会立即显示。</span>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(event) => void handleAvatarFile(event)}
+                  />
                 </div>
               </div>
             </div>
@@ -315,7 +437,41 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
                     {provider.name}
                   </button>
                 ))}
+                {form.customProviders.map((provider) => {
+                  const active =
+                    form.baseUrl.replace(/\/+$/, '') === provider.baseUrl.replace(/\/+$/, '') &&
+                    form.model === provider.model
+                  return (
+                    <span className="provider-chip-wrap" key={provider.id}>
+                      <button
+                        className={`chip chip-sm custom-provider ${active ? 'active' : ''}`}
+                        onClick={() => patch({ baseUrl: provider.baseUrl, model: provider.model })}
+                        title={`${provider.baseUrl} · ${provider.model}`}
+                      >
+                        {provider.name}
+                      </button>
+                      <button
+                        className="provider-chip-remove"
+                        onClick={() => removeProvider(provider.id, provider.name)}
+                        title="从快速填入中移除"
+                        aria-label={`移除快速填入 ${provider.name}`}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  )
+                })}
+                <button
+                  className="chip chip-sm provider-add"
+                  onClick={openProviderModal}
+                  title="添加自定义 API 地址"
+                >
+                  <Plus size={12} /> 自定义
+                </button>
               </div>
+              <span className="field-hint provider-hint">
+                自定义地址会随设置保存，也会写进备份；接口需要兼容 OpenAI Chat Completions 格式。
+              </span>
             </div>
 
             <div className="form-grid">
@@ -555,7 +711,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
 
         <aside className="settings-side">
           <div className="settings-card card profile-preview">
-            <span className="avatar avatar-xxl">{form.avatar}</span>
+            <Avatar value={form.avatar} className="avatar-xxl" />
             <strong>{form.nickname || '小拾'}</strong>
             <p>{form.bio || '记录每一天，也记录成长。'}</p>
             <span className="local-badge">
@@ -590,6 +746,69 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
           </div>
         </aside>
       </div>
+
+      <Modal
+        open={providerModalOpen}
+        onClose={() => setProviderModalOpen(false)}
+        title="自定义快速填入"
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setProviderModalOpen(false)}>
+              取消
+            </button>
+            <button className="btn btn-primary" onClick={addProvider}>
+              <Plus size={15} /> 添加并填入
+            </button>
+          </>
+        }
+      >
+        <div className="provider-modal">
+          <p>
+            保存一个兼容 OpenAI Chat Completions 协议的 API 服务，下次可以直接从「快速填入」切换。
+          </p>
+          <label className="field">
+            <span>显示名称</span>
+            <input
+              className="input"
+              value={providerForm.name}
+              maxLength={24}
+              onChange={(event) =>
+                setProviderForm((prev) => ({ ...prev, name: event.target.value }))
+              }
+              placeholder="例如：公司内网网关"
+              autoFocus
+            />
+          </label>
+          <label className="field">
+            <span>API Base URL</span>
+            <input
+              className="input"
+              value={providerForm.baseUrl}
+              onChange={(event) =>
+                setProviderForm((prev) => ({ ...prev, baseUrl: event.target.value }))
+              }
+              placeholder="https://api.example.com/v1"
+              spellCheck={false}
+            />
+          </label>
+          <label className="field">
+            <span>模型名</span>
+            <input
+              className="input"
+              value={providerForm.model}
+              onChange={(event) =>
+                setProviderForm((prev) => ({ ...prev, model: event.target.value }))
+              }
+              placeholder="qwen-plus"
+              spellCheck={false}
+            />
+          </label>
+          <span className="field-hint">
+            名称和地址只保存在本机。API Key 仍然是当前这一套配置，不会写入备份。
+          </span>
+        </div>
+      </Modal>
 
       {dirty && (
         <div className="save-bar">

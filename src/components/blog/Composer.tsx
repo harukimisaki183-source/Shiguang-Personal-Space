@@ -12,6 +12,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { createNote } from '../../db'
 import { validateMediaFiles } from '../../mediaFiles'
 import { CATEGORIES, type Category } from '../../types'
+import { Avatar } from '../Avatar'
 
 interface ComposerProps {
   onPublished: () => void
@@ -95,7 +96,7 @@ export function Composer({ onPublished }: ComposerProps) {
   return (
     <div className="composer card">
       <div className="composer-head">
-        <span className="avatar avatar-sm">{settings.avatar}</span>
+        <Avatar value={settings.avatar} className="avatar-sm" />
         <div className="composer-head-text">
           <strong>{settings.nickname || '小拾'}</strong>
           <span>记录这一刻…</span>

@@ -105,8 +105,16 @@ export interface Track {
   createdAt: number
 }
 
+export interface QuickProvider {
+  id: string
+  name: string
+  baseUrl: string
+  model: string
+}
+
 export interface Settings {
   nickname: string
+  /** emoji，或者本地图片压缩后的 data URL */
   avatar: string
   bio: string
   theme: 'light' | 'dark'
@@ -115,4 +123,5 @@ export interface Settings {
   apiKey: string
   model: string
   temperature: number
+  customProviders: QuickProvider[]
 }

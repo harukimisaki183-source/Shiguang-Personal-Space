@@ -1,4 +1,4 @@
-import type { Settings } from './types'
+import type { QuickProvider, Settings } from './types'
 
 const SETTINGS_KEY = 'interview-hub:settings:v1'
 const LAST_SEEN_KEY = 'interview-hub:last-seen-version'
@@ -13,12 +13,37 @@ export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   model: 'deepseek-chat',
   temperature: 0.7,
+  customProviders: [],
+}
+
+export function normalizeCustomProviders(value: unknown): QuickProvider[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(
+      (item): item is Partial<QuickProvider> =>
+        Boolean(item) && typeof item === 'object' && !Array.isArray(item),
+    )
+    .map((item, index) => ({
+      id:
+        typeof item.id === 'string' && item.id.trim()
+          ? item.id
+          : `custom-provider-${index}-${String(item.baseUrl ?? '')}`,
+      name:
+        typeof item.name === 'string' && item.name.trim()
+          ? item.name.trim().slice(0, 24)
+          : '自定义服务',
+      baseUrl:
+        typeof item.baseUrl === 'string' ? item.baseUrl.trim().replace(/\/+$/, '') : '',
+      model: typeof item.model === 'string' ? item.model.trim() : '',
+    }))
+    .filter((item) => /^https?:\/\//i.test(item.baseUrl) && item.model)
+    .slice(0, 12)
 }
 
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (!raw) return { ...DEFAULT_SETTINGS }
+    if (!raw) return { ...DEFAULT_SETTINGS, customProviders: [] }
     const parsed = JSON.parse(raw) as Partial<Settings>
     return {
       ...DEFAULT_SETTINGS,
@@ -29,9 +54,10 @@ export function loadSettings(): Settings {
           ? Math.min(1.5, Math.max(0, parsed.temperature))
           : DEFAULT_SETTINGS.temperature,
       demoMode: parsed.demoMode !== false,
+      customProviders: normalizeCustomProviders(parsed.customProviders),
     }
   } catch {
-    return { ...DEFAULT_SETTINGS }
+    return { ...DEFAULT_SETTINGS, customProviders: [] }
   }
 }
 

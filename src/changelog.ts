@@ -9,11 +9,37 @@ export interface ChangelogEntry {
   fixed: string[]
 }
 
-export const APP_VERSION = '0.2.0'
+export const APP_VERSION = '0.2.1'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: APP_VERSION,
+    date: '2026-10-29',
+    title: '头像图片与自定义快速填入',
+    summary:
+      '现在可以用自己的照片做头像，也可以把常用的 API 地址和模型保存成快速填入，以后一键切换。',
+    highlights: [
+      { icon: '🖼️', title: '本地图片头像', text: '上传照片，自动裁成正方形并压缩' },
+      { icon: '⚡', title: '自定义快速填入', text: '保存任意 OpenAI 兼容的 API 地址' },
+      { icon: '🔒', title: '只存在本机', text: '头像和自定义配置不上传服务器' },
+      { icon: '🧷', title: '统一显示', text: '侧栏、说说和对话里的头像同步更新' },
+    ],
+    added: [
+      '设置支持上传本地图片作为头像，可随时恢复 emoji 头像',
+      '图片自动居中裁剪为 256 × 256，并压缩成 WebP',
+      'API 快速填入支持添加自定义 Base URL、模型名和显示名称',
+      '自定义快速填入可以一键切换、移除，并随设置一起备份',
+      '恢复备份时会校验自定义快速填入的数据',
+    ],
+    improved: [
+      '头像组件统一处理 emoji 与本地图片',
+      '上传头像后会提示保存设置，未保存前仍可撤销',
+      '快速填入区域增加自定义接口地址的说明',
+    ],
+    fixed: ['本版本暂无问题修复记录'],
+  },
+  {
+    version: '0.2.0',
     date: '2026-10-29',
     title: '对话、技能与每日卡片',
     summary:

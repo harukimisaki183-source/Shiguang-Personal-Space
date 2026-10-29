@@ -117,6 +117,46 @@ export async function compressImage(file: File): Promise<ImageResult> {
   }
 }
 
+const AVATAR_SOURCE_LIMIT = 12 * 1024 * 1024
+const AVATAR_SIZE = 256
+
+/** 把本地图片居中裁成正方形，压缩成可放进 localStorage 的头像 data URL。 */
+export async function createAvatarDataUrl(file: File): Promise<string> {
+  if (!isImageFile(file)) {
+    throw new Error('请选择 JPG、PNG、WebP 等图片文件')
+  }
+  if (file.size > AVATAR_SOURCE_LIMIT) {
+    throw new Error('图片超过 12MB，请换一张小一点的图片')
+  }
+
+  let bitmap: ImageBitmap | null = null
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    if (!bitmap.width || !bitmap.height) throw new Error('无法读取这张图片')
+
+    const side = Math.min(bitmap.width, bitmap.height)
+    const sx = (bitmap.width - side) / 2
+    const sy = (bitmap.height - side) / 2
+    const canvas = document.createElement('canvas')
+    canvas.width = AVATAR_SIZE
+    canvas.height = AVATAR_SIZE
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('当前浏览器不支持图片处理')
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE)
+
+    const webp = canvas.toDataURL('image/webp', 0.86)
+    if (webp.startsWith('data:image/webp')) return webp
+    return canvas.toDataURL('image/jpeg', 0.88)
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('无法')) throw error
+    throw new Error('这个图片格式无法处理，请换成 JPG、PNG 或 WebP')
+  } finally {
+    bitmap?.close()
+  }
+}
+
 export async function getVideoMeta(
   file: File,
 ): Promise<{ duration: number; width: number; height: number }> {

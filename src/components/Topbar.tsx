@@ -1,6 +1,7 @@
 import { CalendarDays, Moon, Sun } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
 import type { PageKey } from '../types'
+import { AvatarVisual } from './Avatar'
 
 interface TopbarProps {
   page: PageKey
@@ -43,7 +44,7 @@ export function Topbar({ page, onOpenSettings }: TopbarProps) {
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button className="avatar avatar-button" onClick={onOpenSettings} title="打开设置">
-          {settings.avatar}
+          <AvatarVisual value={settings.avatar} />
         </button>
       </div>
     </header>

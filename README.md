@@ -30,8 +30,8 @@
 - **其他**
   - 首次启动更新公告，版本变化时再次提示
   - 浅色 / 深色主题
-  - 个人昵称、头像、简介
-  - 一键导出 / 导入全部数据（含图片、视频、音乐、卡片、自定义技能）
+  - 个人昵称、简介，支持 emoji 头像或上传本地图片做头像（自动裁剪压缩）
+  - 一键导出 / 导入全部数据（含图片、视频、音乐、卡片、自定义技能、自定义 API 配置）
   - 浏览器存储用量展示
 
 ## 运行
@@ -63,7 +63,7 @@ npm run preview     # 预览生产构建
 | 数据 | 位置 |
 | --- | --- |
 | 说说、媒体、对话、消息、卡片、自定义技能、音乐 | 浏览器 IndexedDB：`interview-hub-db` |
-| 设置、主题、API Key | localStorage：`interview-hub:settings:v1` |
+| 设置、主题、头像、API Key、自定义快速填入 | localStorage：`interview-hub:settings:v1` |
 | 已读版本号 | localStorage：`interview-hub:last-seen-version` |
 
 **注意**：清理浏览器数据、换浏览器、重装系统都会丢失内容。请在「设置 → 数据管理」定期导出备份。
@@ -76,6 +76,8 @@ npm run preview     # 预览生产构建
 2. 填模型名（例如 `deepseek-chat`）
 3. 填 API Key
 4. 点「测试连接」
+
+接口需要兼容 OpenAI Chat Completions 格式。除了内置的 DeepSeek / 通义千问 / 智谱 / Kimi，也可以点击快速填入旁的「自定义」，保存自己的 Base URL、模型名和显示名称；保存后会加入快速填入，并随设置一起导出到备份。
 
 浏览器直接请求接口可能遇到 CORS 限制；打包成桌面版后由 Electron 主进程代理请求，可以规避这个问题。
 

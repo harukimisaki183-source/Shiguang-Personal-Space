@@ -431,11 +431,19 @@ input[type='range']::-moz-range-thumb {
   justify-content: center;
   width: 36px;
   height: 36px;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
   border-radius: 50%;
   background: var(--accent-soft);
   font-size: 18px;
   line-height: 1;
+}
+
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-sm {
@@ -2866,8 +2874,16 @@ input[type='range']::-moz-range-thumb {
   justify-content: center;
   width: 32px;
   height: 32px;
+  overflow: hidden;
   border-radius: 50%;
   font-size: 16px;
+}
+
+.msg-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .assistant-avatar {
@@ -3190,6 +3206,23 @@ input[type='range']::-moz-range-thumb {
   background: var(--accent-soft);
 }
 
+.avatar-picker-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.avatar-upload-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.avatar-upload-row .field-hint {
+  flex-basis: 100%;
+}
+
 .input-with-action {
   position: relative;
 }
@@ -3289,8 +3322,66 @@ input[type='range']::-moz-range-thumb {
 .provider-chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 5px;
   margin-top: 6px;
+}
+
+.provider-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.provider-chip-wrap .chip {
+  border-style: dashed;
+}
+
+.provider-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
+  border-radius: 50%;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.provider-chip-remove:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.provider-add {
+  color: var(--accent-strong);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-soft);
+}
+
+.provider-add:hover {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.provider-hint {
+  display: block;
+  margin-top: 6px;
+}
+
+.provider-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-modal > p {
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.7;
 }
 
 .temperature-row {

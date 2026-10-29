@@ -2,6 +2,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { useSettings } from '../../contexts/SettingsContext'
 import type { Category, NoteWithMedia } from '../../types'
 import { formatNoteTime } from '../../utils'
+import { Avatar } from '../Avatar'
 import { MediaThumb } from './MediaThumb'
 
 interface NoteCardProps {
@@ -27,7 +28,7 @@ export function NoteCard({ note, onEdit, onDelete, onOpenMedia }: NoteCardProps)
   return (
     <article className="note-card card">
       <header className="note-head">
-        <span className="avatar avatar-sm">{settings.avatar}</span>
+        <Avatar value={settings.avatar} className="avatar-sm" />
         <div className="note-meta">
           <div className="note-meta-top">
             <strong>{settings.nickname || '小拾'}</strong>
