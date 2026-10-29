@@ -1,3 +1,4 @@
+import { getDesktopBridge, type DesktopBridge } from './desktop'
 import type { ChatMode, Settings, Skill } from './types'
 import { sleep } from './utils'
 
@@ -53,9 +54,25 @@ export async function streamChat({
 
   const endpoint = buildEndpoint(settings.baseUrl)
   const messages = [
-    { role: 'system', content: skill.systemPrompt },
+    { role: 'system' as const, content: skill.systemPrompt },
     ...trimHistory(history).map((turn) => ({ role: turn.role, content: turn.content })),
   ]
+  const model = settings.model.trim() || 'deepseek-chat'
+  const desktop = getDesktopBridge()
+
+  if (desktop) {
+    await streamChatInDesktop({
+      desktop,
+      endpoint,
+      apiKey: settings.apiKey.trim(),
+      model,
+      messages,
+      temperature: settings.temperature,
+      onDelta,
+      signal,
+    })
+    return
+  }
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -64,7 +81,7 @@ export async function streamChat({
       Authorization: `Bearer ${settings.apiKey.trim()}`,
     },
     body: JSON.stringify({
-      model: settings.model.trim() || 'deepseek-chat',
+      model,
       messages,
       temperature: settings.temperature,
       stream: true,
@@ -120,10 +137,107 @@ export async function streamChat({
   }
 }
 
+interface DesktopStreamOptions {
+  desktop: DesktopBridge
+  endpoint: string
+  apiKey: string
+  model: string
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+  temperature: number
+  onDelta: (text: string) => void
+  signal?: AbortSignal
+}
+
+async function streamChatInDesktop({
+  desktop,
+  endpoint,
+  apiKey,
+  model,
+  messages,
+  temperature,
+  onDelta,
+  signal,
+}: DesktopStreamOptions): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    let received = false
+    let settled = false
+    let cancel: (() => void) | null = null
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort)
+    }
+    const finish = (error?: Error) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (error) {
+        try {
+          cancel?.()
+        } catch {
+          // ignore
+        }
+        reject(error)
+      } else {
+        resolve()
+      }
+    }
+    const onAbort = () => finish(new DOMException('Aborted', 'AbortError'))
+
+    if (signal?.aborted) {
+      onAbort()
+      return
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+
+    try {
+      cancel = desktop.llm.stream(
+        { endpoint, apiKey, model, messages, temperature },
+        (event) => {
+          if (event.type === 'delta') {
+            if (event.text) {
+              received = true
+              onDelta(event.text)
+            }
+            return
+          }
+          if (event.type === 'error') {
+            finish(new Error(event.message || '模型请求失败，请稍后再试'))
+            return
+          }
+          if (event.type === 'done') {
+            if (!received) {
+              finish(new Error('模型没有返回内容。请检查模型名是否正确，或稍后再试。'))
+              return
+            }
+            finish()
+          }
+        },
+      )
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error(String(error)))
+    }
+  })
+}
+
 export async function testConnection(settings: Settings): Promise<string> {
   if (settings.demoMode) return '当前是演示模式，无需连接。'
   if (!settings.apiKey.trim()) throw new Error('请先填写 API Key')
   const endpoint = buildEndpoint(settings.baseUrl)
+  const model = settings.model.trim() || 'deepseek-chat'
+  const desktop = getDesktopBridge()
+
+  if (desktop) {
+    const result = await desktop.llm.test({
+      endpoint,
+      apiKey: settings.apiKey.trim(),
+      model,
+      messages: [{ role: 'user', content: '请只回复：OK' }],
+      temperature: 0,
+    })
+    if (!result.ok) throw new Error(result.message || '连接失败')
+    return result.content || '连接成功，但模型没有返回文本。'
+  }
+
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 20_000)
   try {
@@ -134,7 +248,7 @@ export async function testConnection(settings: Settings): Promise<string> {
         Authorization: `Bearer ${settings.apiKey.trim()}`,
       },
       body: JSON.stringify({
-        model: settings.model.trim() || 'deepseek-chat',
+        model,
         messages: [{ role: 'user', content: '请只回复：OK' }],
         temperature: 0,
         max_tokens: 10,

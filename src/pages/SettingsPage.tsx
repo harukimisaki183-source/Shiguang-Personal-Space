@@ -8,11 +8,14 @@ import {
   Download,
   Eye,
   EyeOff,
+  FolderOpen,
   HardDrive,
+  History,
   ImagePlus,
   Info,
   KeyRound,
   Loader2,
+  Monitor,
   Moon,
   Music2,
   NotebookPen,
@@ -37,6 +40,7 @@ import { useConfirm } from '../contexts/ConfirmContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useToast } from '../contexts/ToastContext'
 import { clearAllContent, getContentCounts, getStorageStats } from '../db'
+import { getDesktopBridge, isDesktopApp, type DesktopInfo, type DesktopUpdateStatus } from '../desktop'
 import { testConnection } from '../llm'
 import { DEFAULT_SETTINGS, normalizeCustomProviders } from '../storage'
 import type { Settings } from '../types'
@@ -85,8 +89,13 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [providerModalOpen, setProviderModalOpen] = useState(false)
   const [providerForm, setProviderForm] = useState({ name: '', baseUrl: '', model: '' })
+  const [desktopInfo, setDesktopInfo] = useState<DesktopInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [downloadingUpdate, setDownloadingUpdate] = useState(false)
+  const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const desktop = getDesktopBridge()
 
   const emptyCounts = {
     notes: 0,
@@ -108,6 +117,32 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
       alive = false
     }
   }, [counts.notes, counts.media, counts.tracks, counts.cards])
+
+  useEffect(() => {
+    if (!desktop) return
+    let alive = true
+    void desktop.app
+      .getInfo()
+      .then((info) => {
+        if (alive) setDesktopInfo(info)
+      })
+      .catch(() => {
+        if (alive) setDesktopInfo(null)
+      })
+    const off = desktop.updates.onStatus((status) => {
+      if (alive) {
+        setUpdateStatus(status)
+        if (status.type === 'progress') setDownloadingUpdate(true)
+        if (status.type === 'downloaded' || status.type === 'error') {
+          setDownloadingUpdate(false)
+        }
+      }
+    })
+    return () => {
+      alive = false
+      off()
+    }
+  }, [desktop])
 
   const dirty = (Object.keys(form) as (keyof Settings)[]).some(
     (key) => form[key] !== settings[key],
@@ -213,6 +248,86 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
       showToast(error instanceof Error ? error.message : '连接失败', 'error')
     } finally {
       setTesting(false)
+    }
+  }
+
+  async function checkForUpdates() {
+    if (!desktop) return
+    setCheckingUpdate(true)
+    setUpdateStatus({ type: 'checking', message: '正在检查更新…' })
+    try {
+      const result = await desktop.updates.check()
+      if (!result.ok) {
+        setUpdateStatus({
+          type: 'error',
+          message: result.message || '检查更新失败',
+        })
+      }
+    } catch (error) {
+      setUpdateStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : '检查更新失败',
+      })
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  async function downloadUpdate() {
+    if (!desktop) return
+    setDownloadingUpdate(true)
+    setUpdateStatus({ type: 'progress', percent: 0, message: '正在准备下载更新…' })
+    try {
+      const result = await desktop.updates.download()
+      if (!result.ok) {
+        setDownloadingUpdate(false)
+        setUpdateStatus({
+          type: 'error',
+          message: result.message || '下载更新失败',
+        })
+      }
+    } catch (error) {
+      setDownloadingUpdate(false)
+      setUpdateStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : '下载更新失败',
+      })
+    }
+  }
+
+  async function installUpdate() {
+    if (!desktop) return
+    const ok = await confirm({
+      title: '重启并安装更新？',
+      message: '拾光会关闭并安装已经下载的新版本。程序更新不会删除记录、对话、卡片或音乐。',
+      confirmText: '重启安装',
+    })
+    if (!ok) return
+    try {
+      const result = await desktop.updates.install()
+      if (!result.ok) showToast(result.message || '无法安装更新', 'error')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '无法安装更新', 'error')
+    }
+  }
+
+  async function openDataFolder() {
+    if (!desktop) return
+    try {
+      const result = await desktop.app.openDataFolder()
+      if (!result.ok) showToast(result.message || '无法打开数据目录', 'error')
+    } catch {
+      showToast('无法打开数据目录', 'error')
+    }
+  }
+
+  async function openSnapshotsFolder() {
+    if (!desktop) return
+    try {
+      const result = await desktop.app.openSnapshotsFolder()
+      if (!result.ok) showToast(result.message || '无法打开快照目录', 'error')
+    } catch {
+      showToast('无法打开快照目录', 'error')
     }
   }
 
@@ -519,7 +634,9 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
                 </button>
               </div>
               <span className="field-hint">
-                Web 原型会保存在浏览器 localStorage。打包桌面版后会改为系统加密存储。
+                {isDesktopApp
+                  ? '桌面版通过 Windows 系统加密（DPAPI / safeStorage）保存，不会写入 localStorage，也不会写进备份。'
+                  : 'Web 版会保存在浏览器 localStorage，仅适合本机体验；桌面版会改为系统加密存储。'}
               </span>
             </label>
 
@@ -552,7 +669,9 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
               <span className="muted">
                 {form.demoMode
                   ? '演示模式已开启，无需连接。'
-                  : '浏览器直连接口可能受 CORS 限制，桌面版会由主进程代理。'}
+                  : isDesktopApp
+                    ? '桌面版通过主进程转发请求，不受浏览器 CORS 限制。'
+                    : '浏览器直连接口可能受 CORS 限制，桌面版会由主进程代理。'}
               </span>
             </div>
           </section>
@@ -606,7 +725,11 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
               </span>
               <div>
                 <h2>数据管理</h2>
-                <p>记录、对话、卡片和音乐都保存在浏览器 IndexedDB，可整体备份。</p>
+                <p>
+                  {isDesktopApp
+                    ? '记录、对话、卡片和音乐保存在本机应用数据目录，可整体备份。'
+                    : '记录、对话、卡片和音乐都保存在浏览器 IndexedDB，可整体备份。'}
+                </p>
               </div>
             </div>
 
@@ -641,7 +764,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
             {storage.quota > 0 && (
               <div className="storage-meter">
                 <div className="storage-meter-head">
-                  <span>浏览器存储</span>
+                  <span>{isDesktopApp ? '本机存储' : '浏览器存储'}</span>
                   <span>
                     {formatBytes(storage.usage)} / {formatBytes(storage.quota)}
                   </span>
@@ -679,7 +802,143 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
             </div>
             <p className="field-hint">
               备份文件不包含 API Key。媒体文件会以 Base64 写入 JSON，数据较多时文件会比较大。
+              {isDesktopApp
+                ? ' 从网页版迁移：先在网页版导出备份，再在这里点「导入备份」。安装新版本不会覆盖本机数据。'
+                : ' 网页版在同一域名下更新会保留数据；切换到桌面版时，用「导出备份 → 导入备份」迁移。'}
             </p>
+          </section>
+
+          <section className="settings-card card">
+            <div className="settings-head">
+              <span className="settings-icon">
+                <Monitor size={18} />
+              </span>
+              <div>
+                <h2>桌面版与更新</h2>
+                <p>
+                  {isDesktopApp
+                    ? '程序更新和数据分开存放；新版本只替换程序文件，不改动本机内容。'
+                    : '网页版与桌面版数据相互独立，跨端迁移请使用备份。'}
+                </p>
+              </div>
+            </div>
+
+            {isDesktopApp ? (
+              <div className="desktop-panel">
+                <div className="desktop-info-grid">
+                  <div>
+                    <span>当前版本</span>
+                    <strong>v{APP_VERSION}</strong>
+                  </div>
+                  <div>
+                    <span>API Key 存储</span>
+                    <strong>
+                      {desktopInfo?.secretEncryptionAvailable
+                        ? 'Windows 系统加密'
+                        : '系统加密不可用'}
+                    </strong>
+                  </div>
+                  <div className="desktop-path">
+                    <span>数据目录</span>
+                    <code>{desktopInfo?.userDataDir || '读取中…'}</code>
+                  </div>
+                  <div className="desktop-path">
+                    <span>升级安全快照</span>
+                    <code>
+                      {desktopInfo?.snapshots.length
+                        ? `${desktopInfo.snapshots[0].fromVersion} → ${desktopInfo.snapshots[0].toVersion} · ${new Date(
+                            desktopInfo.snapshots[0].createdAt,
+                          ).toLocaleString('zh-CN', { hour12: false })}（共 ${desktopInfo.snapshots.length} 份）`
+                        : '首次跨版本启动前自动创建'}
+                    </code>
+                  </div>
+                </div>
+
+                <div className="data-actions">
+                  <button className="btn btn-subtle" onClick={() => void openDataFolder()}>
+                    <FolderOpen size={16} /> 打开数据目录
+                  </button>
+                  <button className="btn btn-subtle" onClick={() => void openSnapshotsFolder()}>
+                    <History size={16} /> 打开快照目录
+                  </button>
+                  {desktopInfo?.isPackaged ? (
+                    <button
+                      className="btn btn-subtle"
+                      onClick={() => void checkForUpdates()}
+                      disabled={checkingUpdate || downloadingUpdate}
+                    >
+                      {checkingUpdate ? (
+                        <Loader2 size={16} className="spin" />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )}
+                      {checkingUpdate ? '检查中…' : '检查更新'}
+                    </button>
+                  ) : (
+                    <span className="field-hint">开发模式下不连接更新服务器。</span>
+                  )}
+                </div>
+
+                {updateStatus && (
+                  <div
+                    className={`update-status ${
+                      updateStatus.type === 'error'
+                        ? 'error'
+                        : updateStatus.type === 'available' ||
+                            updateStatus.type === 'downloaded'
+                          ? 'ready'
+                          : ''
+                    }`}
+                  >
+                    <span>{updateStatus.message}</span>
+                    {updateStatus.type === 'available' && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => void downloadUpdate()}
+                        disabled={downloadingUpdate}
+                      >
+                        {downloadingUpdate ? (
+                          <Loader2 size={14} className="spin" />
+                        ) : (
+                          <Download size={14} />
+                        )}
+                        {downloadingUpdate ? '下载中…' : '下载更新'}
+                      </button>
+                    )}
+                    {updateStatus.type === 'downloaded' && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => void installUpdate()}
+                      >
+                        <RotateCcw size={14} /> 重启并安装
+                      </button>
+                    )}
+                    {updateStatus.type === 'progress' &&
+                      typeof updateStatus.percent === 'number' && (
+                        <span className="update-progress">
+                          <i style={{ width: `${Math.max(2, updateStatus.percent)}%` }} />
+                        </span>
+                      )}
+                  </div>
+                )}
+
+                <p className="field-hint">
+                  安装新版本只替换程序文件，记录、对话、卡片、自定义技能和音乐保存在上面的独立目录。
+                  跨版本启动前会自动复制一份旧数据快照，并保留最近 3 份；仍然建议定期导出备份。
+                  从网页版迁移时，请先在网页版导出备份，再使用上方的「导入备份」。
+                </p>
+              </div>
+            ) : (
+              <div className="desktop-panel">
+                <p className="desktop-web-note">
+                  网页版由服务器直接更新，同一域名下的 IndexedDB 和设置会继续保留，不需要重新下载。
+                  如果之后改用桌面版，请先在网页版导出备份，再在桌面版的「数据管理」中导入。
+                </p>
+                <p className="field-hint">
+                  桌面安装包使用独立的数据目录；安装或覆盖升级不会修改记录、对话、卡片、自定义技能和音乐。
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="settings-card card">
@@ -689,13 +948,17 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
               </span>
               <div>
                 <h2>关于拾光</h2>
-                <p>Web 原型 · 版本 v{APP_VERSION}</p>
+                <p>{isDesktopApp ? '桌面版' : 'Web 版'} · 版本 v{APP_VERSION}</p>
               </div>
             </div>
             <div className="about-row">
               <div>
                 <strong>拾光 · 个人空间</strong>
-                <span>记录、AI 对话、每日卡片与音乐的一体化空间。桌面版正在规划中。</span>
+                <span>
+                  {isDesktopApp
+                    ? '记录、AI 对话、每日卡片与音乐的一体化空间。数据和程序分开存放，更新会保留本机内容。'
+                    : '记录、AI 对话、每日卡片与音乐的一体化空间。桌面版与网页版共用同一套备份格式。'}
+                </span>
               </div>
               <div className="about-actions">
                 <button className="btn btn-subtle btn-sm" onClick={onShowUpdateLog}>
@@ -738,10 +1001,21 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
               <ShieldCheck size={16} /> 数据小贴士
             </h3>
             <ul>
-              <li>说说、图片、视频、对话、卡片、自定义技能和音乐都只保存在当前浏览器。</li>
-              <li>清理浏览器数据、换浏览器或重装系统会丢失内容，请定期导出备份。</li>
-              <li>Web 版只是原型；桌面版会把数据放进应用目录，并支持托盘后台播放。</li>
-              <li>API Key 不会写入备份文件。</li>
+              {isDesktopApp ? (
+                <>
+                  <li>说说、图片、视频、对话、卡片、自定义技能和音乐都只保存在这台电脑。</li>
+                  <li>安装新版本不会删除数据；跨版本启动前会自动保留一份旧数据快照。</li>
+                  <li>清理应用数据目录、重装系统仍会丢失内容，请定期导出备份。</li>
+                  <li>API Key 通过系统加密保存，也不会写入备份文件。</li>
+                </>
+              ) : (
+                <>
+                  <li>说说、图片、视频、对话、卡片、自定义技能和音乐都只保存在当前浏览器。</li>
+                  <li>清理浏览器数据、换浏览器或重装系统会丢失内容，请定期导出备份。</li>
+                  <li>网页版更新不会改变同一域名下的数据；换到桌面版请用备份迁移。</li>
+                  <li>API Key 不会写入备份文件。</li>
+                </>
+              )}
             </ul>
           </div>
         </aside>

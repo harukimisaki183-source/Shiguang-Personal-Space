@@ -1,29 +1,42 @@
 {
   "name": "interview-hub",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
+  "description": "拾光 · 记录、AI 对话、每日卡片与本地音乐的本地优先个人空间",
+  "author": "harukimisaki",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:desktop": "concurrently -k -s first \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "start:desktop": "electron .",
     "build": "tsc --noEmit && vite build",
+    "build:desktop": "npm run build && electron-builder --win nsis --publish never",
+    "pack:desktop": "npm run build && electron-builder --win dir --publish never",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "date-fns": "^4.4.0",
-    "dexie": "^4.4.7",
-    "dexie-react-hooks": "^4.4.0",
-    "lucide-react": "^1.64.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "electron-updater": "^6.8.11"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0",
+    "date-fns": "^4.4.0",
+    "dexie": "^4.4.7",
+    "dexie-react-hooks": "^4.4.0",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "lucide-react": "^1.64.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "wait-on": "^9.5.1"
   }
 }

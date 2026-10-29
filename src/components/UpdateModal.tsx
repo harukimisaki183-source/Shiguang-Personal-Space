@@ -2,14 +2,16 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Bug, ShieldCheck, Sparkles, Wrench, X } from 'lucide-react'
 import { APP_VERSION, CHANGELOG } from '../changelog'
+import { isDesktopApp } from '../desktop'
 
 interface UpdateModalProps {
   open: boolean
   firstRun: boolean
   onClose: () => void
+  onOpenData?: () => void
 }
 
-export function UpdateModal({ open, firstRun, onClose }: UpdateModalProps) {
+export function UpdateModal({ open, firstRun, onClose, onOpenData }: UpdateModalProps) {
   useEffect(() => {
     if (!open) return
     const previousOverflow = document.body.style.overflow
@@ -100,15 +102,26 @@ export function UpdateModal({ open, firstRun, onClose }: UpdateModalProps) {
 
           <div className="update-privacy">
             <ShieldCheck size={17} />
-            <span>这是 Web 原型版：数据只保存在当前浏览器，不会上传到服务器。请定期在「设置」中导出备份。</span>
+            <span>
+              {isDesktopApp
+                ? '桌面版：内容只保存在这台电脑的应用数据目录，更新只替换程序文件。如果你之前在网页版记录过内容，请先在网页版导出备份，再从「设置 → 数据管理 → 导入备份」迁移过来。'
+                : 'Web 版：数据只保存在当前浏览器，不会上传到服务器。同一域名下更新会保留数据；请定期在「设置」中导出备份。'}
+            </span>
           </div>
         </div>
 
         <div className="update-foot">
           <span className="muted">当前版本 v{APP_VERSION}</span>
-          <button className="btn btn-primary btn-lg" onClick={onClose}>
-            {firstRun ? '开始使用' : '知道了'}
-          </button>
+          <div className="update-foot-actions">
+            {isDesktopApp && firstRun && onOpenData && (
+              <button className="btn btn-ghost" onClick={onOpenData}>
+                迁移网页版数据
+              </button>
+            )}
+            <button className="btn btn-primary btn-lg" onClick={onClose}>
+              {firstRun ? '开始使用' : '知道了'}
+            </button>
+          </div>
         </div>
       </div>
     </div>,

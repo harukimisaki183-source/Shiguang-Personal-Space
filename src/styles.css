@@ -5480,3 +5480,208 @@ input[type='range']::-moz-range-thumb {
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------- 桌面版数据与更新 ------------------------- */
+
+.update-foot-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.desktop-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.desktop-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.desktop-info-grid > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.desktop-info-grid span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+
+.desktop-info-grid strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.desktop-info-grid code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.desktop-path {
+  grid-column: 1 / -1;
+}
+
+.desktop-panel .data-actions {
+  margin-top: 0;
+}
+
+.desktop-web-note {
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.update-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.update-status > span:first-child {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.update-status.ready {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: var(--accent-soft);
+}
+
+.update-status.error {
+  border-color: color-mix(in srgb, var(--danger) 24%, var(--border));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.update-progress {
+  flex: 1 1 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.update-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+  transition: width 0.2s ease;
+}
+
+/* --------------------------- 启动失败提示 --------------------------- */
+
+.startup-error {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+  background:
+    radial-gradient(800px 500px at 10% 0%, var(--bg-glow-1), transparent 60%),
+    radial-gradient(800px 500px at 100% 100%, var(--bg-glow-2), transparent 60%),
+    var(--bg);
+}
+
+.startup-error-card {
+  width: min(580px, 100%);
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.startup-error-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 14px;
+  color: var(--danger);
+  border-radius: 14px;
+  background: var(--danger-soft);
+}
+
+.startup-error h1 {
+  margin: 0 0 10px;
+  font-size: 21px;
+  letter-spacing: -0.2px;
+}
+
+.startup-error p {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.startup-error pre {
+  max-height: 170px;
+  margin: 14px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--danger);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.startup-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.startup-error-hint {
+  margin-top: 12px;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+@media (max-width: 640px) {
+  .desktop-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .update-foot {
+    flex-wrap: wrap;
+  }
+
+  .update-foot-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .startup-error-card {
+    padding: 22px;
+  }
+}

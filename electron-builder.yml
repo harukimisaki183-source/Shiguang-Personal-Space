@@ -1,0 +1,43 @@
+appId: com.harukimisaki.shiguang
+productName: 拾光
+executableName: Shiguang
+copyright: Copyright © 2026 harukimisaki
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - build/icon.png
+  - package.json
+
+asar: true
+npmRebuild: false
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+artifactName: Shiguang-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 拾光
+  uninstallDisplayName: 拾光
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+
+publish:
+  provider: github
+  owner: harukimisaki183-source
+  repo: Shiguang-Personal-Space
+  releaseType: release

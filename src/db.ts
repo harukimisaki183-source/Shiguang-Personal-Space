@@ -39,6 +39,9 @@ class InterviewHubDB extends Dexie {
 
   constructor() {
     super('interview-hub-db')
+    // 发布后如需改表结构：新增 this.version(n).stores(...).upgrade(...)，
+    // 保留旧版本的声明，让 Dexie 在事务里升级。桌面版在跨版本启动前
+    // 还会由主进程自动生成一份数据快照（见 electron/data-safety.cjs）。
     this.version(1).stores({
       notes: 'id, createdAt, updatedAt, category',
       media: 'id, noteId, createdAt',

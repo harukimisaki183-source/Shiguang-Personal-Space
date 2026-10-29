@@ -9,11 +9,42 @@ export interface ChangelogEntry {
   fixed: string[]
 }
 
-export const APP_VERSION = '0.2.1'
+export const APP_VERSION = '0.3.0'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: APP_VERSION,
+    date: '2026-10-29',
+    title: '桌面版 · 更新不丢数据',
+    summary:
+      '拾光可以打包成 Windows 桌面应用了。程序和数据分开存放，安装新版本只替换程序；跨版本启动前还会自动留一份旧数据快照。',
+    highlights: [
+      { icon: '💻', title: 'Windows 桌面版', text: '安装到本机，双击桌面图标直接使用' },
+      { icon: '🗃️', title: '数据独立保存', text: '升级安装不覆盖记录、对话、卡片和音乐' },
+      { icon: '🛟', title: '升级前快照', text: '版本变化时自动备份旧数据，保留最近 3 份' },
+      { icon: '🔐', title: '系统加密 Key', text: 'API Key 交给 Windows 系统加密，不再明文落盘' },
+    ],
+    added: [
+      'Electron 桌面版、自定义 app:// 协议和 Windows NSIS 安装包',
+      '应用数据固定在 %APPDATA%\\Shiguang，覆盖安装和自动更新不会删除',
+      '跨版本启动前自动快照 IndexedDB 与 localStorage，可手动恢复',
+      'API Key 使用 Electron safeStorage（Windows DPAPI）加密保存',
+      '大模型请求改由桌面主进程代理，不受浏览器 CORS 限制',
+      '设置中新增桌面版信息、数据目录、快照目录和检查更新',
+      '桌面版更新检查、下载、重启安装（通过 GitHub Releases）',
+      '启动数据库失败时显示恢复提示，而不是空白页面',
+      '网页版数据可通过「导出备份 → 桌面版导入备份」迁移',
+    ],
+    improved: [
+      '桌面版启动时先完成 Dexie 数据库升级，再渲染界面',
+      '下载备份、卡片和安装包时使用系统保存对话框',
+      '更新公告会区分网页版与桌面版，并提示网页数据迁移方式',
+      'README 补充安装、升级、数据目录和迁移说明',
+    ],
+    fixed: ['本版本暂无问题修复记录'],
+  },
+  {
+    version: '0.2.1',
     date: '2026-10-29',
     title: '头像图片与自定义快速填入',
     summary:

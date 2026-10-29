@@ -1,3 +1,4 @@
+import { isDesktopApp } from './desktop'
 import type { QuickProvider, Settings } from './types'
 
 const SETTINGS_KEY = 'interview-hub:settings:v1'
@@ -63,7 +64,10 @@ export function loadSettings(): Settings {
 
 export function saveSettings(settings: Settings): void {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    // 桌面版把 API Key 交给主进程的 safeStorage（Windows DPAPI）管理，
+    // localStorage 只保存非敏感设置，避免明文落盘。
+    const safe = isDesktopApp ? { ...settings, apiKey: '' } : settings
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(safe))
   } catch {
     // localStorage 不可用时，设置只在本次会话中生效
   }

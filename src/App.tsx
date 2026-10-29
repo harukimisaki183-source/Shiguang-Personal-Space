@@ -55,14 +55,22 @@ function AppShell() {
 
       <MusicBar />
       <MusicDrawer />
-      <UpdateModal open={updateOpen} firstRun={isFirstRun} onClose={closeUpdate} />
+      <UpdateModal
+        open={updateOpen}
+        firstRun={isFirstRun}
+        onClose={closeUpdate}
+        onOpenData={() => {
+          closeUpdate()
+          navigate('settings')
+        }}
+      />
     </div>
   )
 }
 
-export default function App() {
+export default function App({ initialApiKey = '' }: { initialApiKey?: string }) {
   return (
-    <SettingsProvider>
+    <SettingsProvider initialApiKey={initialApiKey}>
       <ToastProvider>
         <ConfirmProvider>
           <MusicProvider>
