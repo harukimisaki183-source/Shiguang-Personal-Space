@@ -94,6 +94,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [downloadingUpdate, setDownloadingUpdate] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null)
+  const [uninstalling, setUninstalling] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const desktop = getDesktopBridge()
@@ -330,6 +331,34 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
       if (!result.ok) showToast(result.message || '无法打开快照目录', 'error')
     } catch {
       showToast('无法打开快照目录', 'error')
+    }
+  }
+
+  async function uninstallApp() {
+    if (!desktop || uninstalling) return
+    const ok = await confirm({
+      title: '卸载拾光？',
+      message: (
+        <>
+          将启动卸载程序，删除拾光的程序文件、开始菜单和桌面快捷方式。
+          <br />
+          本机数据目录 <code>{desktopInfo?.userDataDir || '读取中…'}</code> 中的记录、对话、计划、卡片和音乐不会被删除；如需彻底清理，请在卸载后手动删除该目录。
+        </>
+      ),
+      confirmText: '继续卸载',
+      danger: true,
+    })
+    if (!ok) return
+    setUninstalling(true)
+    try {
+      const result = await desktop.app.uninstall()
+      if (!result.ok) {
+        setUninstalling(false)
+        showToast(result.message || '无法启动卸载程序', 'error')
+      }
+    } catch (error) {
+      setUninstalling(false)
+      showToast(error instanceof Error ? error.message : '无法启动卸载程序', 'error')
     }
   }
 
@@ -934,6 +963,27 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
                   跨版本启动前会自动复制一份旧数据快照，并保留最近 3 份；仍然建议定期导出备份。
                   从网页版迁移时，请先在网页版导出备份，再使用上方的「导入备份」。
                 </p>
+
+                {desktopInfo?.isPackaged && desktopInfo.platform === 'win32' && (
+                  <div className="desktop-danger-zone">
+                    <div>
+                      <strong>卸载拾光</strong>
+                      <p>删除程序文件和快捷方式，不影响数据目录中的本机内容。</p>
+                    </div>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => void uninstallApp()}
+                      disabled={uninstalling}
+                    >
+                      {uninstalling ? (
+                        <Loader2 size={16} className="spin" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                      {uninstalling ? '正在启动…' : '卸载拾光'}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="desktop-panel">

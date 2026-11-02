@@ -1,7 +1,7 @@
 {
   "name": "interview-hub",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "拾光 · 记录、AI 对话、计划表、每日卡片与本地音乐的本地优先个人空间",
   "author": "harukimisaki",
   "main": "electron/main.cjs",

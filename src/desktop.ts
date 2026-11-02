@@ -81,6 +81,7 @@ export interface DesktopBridge {
     getInfo: () => Promise<DesktopInfo>
     openDataFolder: () => Promise<{ ok: boolean; message?: string }>
     openSnapshotsFolder: () => Promise<{ ok: boolean; message?: string }>
+    uninstall: () => Promise<{ ok: boolean; message?: string }>
     notifyReady: () => void
   }
   secrets: {

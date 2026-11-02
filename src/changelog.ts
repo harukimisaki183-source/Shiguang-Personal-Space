@@ -9,11 +9,28 @@ export interface ChangelogEntry {
   fixed: string[]
 }
 
-export const APP_VERSION = '0.4.0'
+export const APP_VERSION = '0.4.1'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: APP_VERSION,
+    date: '2026-11-02',
+    title: '卸载入口 · 一键移除程序文件',
+    summary:
+      '桌面版设置页新增「卸载拾光」按钮：确认后会启动安装包自带的卸载程序，移除程序文件和快捷方式。本机的记录、对话、计划、卡片和音乐保存在独立数据目录中，不会被一起删除。',
+    highlights: [
+      { icon: '🧹', title: '应用内卸载', text: '设置页直接启动官方卸载程序' },
+      { icon: '🛟', title: '数据仍然保留', text: '程序文件删除后，本机内容仍在数据目录' },
+    ],
+    added: [
+      '桌面版设置页新增「卸载拾光」入口，调用安装包自带的卸载程序',
+      '卸载前提示数据目录位置，程序文件删除后记录、对话、计划、卡片和音乐仍然保留',
+    ],
+    improved: ['卸载入口只在安装版显示，开发模式不会误触'],
+    fixed: ['本版本暂无问题修复记录'],
+  },
+  {
+    version: '0.4.0',
     date: '2026-11-02',
     title: '计划表 · 把目标拆成可以打勾的一步步',
     summary:
@@ -47,7 +64,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: ['修复重新打开应用后上次播放的音乐没有自动恢复的问题'],
   },
   {
-    version: APP_VERSION,
+    version: '0.3.0',
     date: '2026-10-29',
     title: '桌面版 · 更新不丢数据',
     summary:

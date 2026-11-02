@@ -3,6 +3,7 @@
 const fs = require('node:fs')
 const fsp = require('node:fs/promises')
 const path = require('node:path')
+const { spawn } = require('node:child_process')
 const {
   app,
   BrowserWindow,
@@ -97,6 +98,7 @@ let startupSnapshot = null
 let rendererReady = false
 let llm = null
 let updateListenersReady = false
+let uninstallStarted = false
 
 function log(message) {
   const line = `[${new Date().toISOString()}] ${message}\n`
@@ -314,6 +316,22 @@ function configureSession() {
   })
 }
 
+function findUninstaller() {
+  if (process.platform !== 'win32' || !app.isPackaged) return null
+  const appDir = path.dirname(process.execPath)
+  const executableName = path.basename(process.execPath, path.extname(process.execPath))
+  const preferred = path.join(appDir, `Uninstall ${executableName}.exe`)
+  if (fs.existsSync(preferred)) return preferred
+  try {
+    const fallback = fs
+      .readdirSync(appDir, { withFileTypes: true })
+      .find((entry) => entry.isFile() && /^Uninstall .+\.exe$/i.test(entry.name))
+    return fallback ? path.join(appDir, fallback.name) : null
+  } catch {
+    return null
+  }
+}
+
 function registerAppIpc() {
   ipcMain.handle('app:info', async (event) => {
     if (!isTrusted(event)) throw new Error('未授权的请求来源')
@@ -351,6 +369,57 @@ function registerAppIpc() {
     await fsp.mkdir(dir, { recursive: true })
     const error = await shell.openPath(dir)
     return error ? { ok: false, message: error } : { ok: true }
+  })
+
+  ipcMain.handle('app:uninstall', async (event) => {
+    if (!isTrusted(event)) return { ok: false, message: '未授权的请求来源' }
+    if (process.platform !== 'win32' || !app.isPackaged) {
+      return { ok: false, message: '开发模式没有可用的卸载程序。' }
+    }
+    if (uninstallStarted) {
+      return { ok: false, message: '卸载程序已经启动，请稍候。' }
+    }
+    const uninstaller = findUninstaller()
+    if (!uninstaller) {
+      return {
+        ok: false,
+        message: '没有找到卸载程序，请在 Windows「设置 → 应用 → 已安装的应用」中卸载拾光。',
+      }
+    }
+    uninstallStarted = true
+    try {
+      const child = spawn(uninstaller, ['/currentuser'], {
+        cwd: path.dirname(uninstaller),
+        detached: true,
+        stdio: 'ignore',
+      })
+      const launched = await new Promise((resolve) => {
+        child.once('spawn', () => resolve(true))
+        child.once('error', (error) => {
+          logError('卸载程序', error)
+          resolve(false)
+        })
+      })
+      if (!launched) {
+        uninstallStarted = false
+        return {
+          ok: false,
+          message: '无法启动卸载程序，请在 Windows「设置 → 应用 → 已安装的应用」中卸载拾光。',
+        }
+      }
+      child.unref()
+      log(`启动卸载程序：${uninstaller}`)
+      // 先让渲染层收到成功结果，再退出主程序，避免占用待删除的程序文件。
+      setTimeout(() => app.quit(), 400)
+      return { ok: true }
+    } catch (error) {
+      uninstallStarted = false
+      logError('启动卸载程序', error)
+      return {
+        ok: false,
+        message: '无法启动卸载程序，请在 Windows「设置 → 应用 → 已安装的应用」中卸载拾光。',
+      }
+    }
   })
 
   ipcMain.on('app:renderer-ready', async (event) => {

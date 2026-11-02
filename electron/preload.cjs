@@ -26,6 +26,7 @@ const bridge = {
     getInfo: () => ipcRenderer.invoke('app:info'),
     openDataFolder: () => ipcRenderer.invoke('app:open-data-folder'),
     openSnapshotsFolder: () => ipcRenderer.invoke('app:open-snapshots-folder'),
+    uninstall: () => ipcRenderer.invoke('app:uninstall'),
     notifyReady: () => ipcRenderer.send('app:renderer-ready'),
   },
   secrets: {

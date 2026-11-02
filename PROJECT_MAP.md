@@ -3,7 +3,7 @@
 > 这份文件是给 Claude / 未来的维护者看的，不是用户文档。目标：任何一次优化前，能在几分钟内重新建立完整心智模型。
 > 用户向说明在 `README.md`；这里记录的是「东西在哪、怎么连、什么不能碰、改哪里」。
 >
-> 最后扫描：2026-11-02 · 对应版本 **0.4.0**
+> 最后扫描：2026-11-02 · 对应版本 **0.4.1**
 
 ---
 
@@ -18,7 +18,7 @@
 - 分支：`main`（本地与 origin 同步）
 - 产品名/可执行文件：拾光 / `Shiguang.exe`
 - appId：`com.harukimisaki.shiguang`
-- 当前版本：`0.4.0`（`package.json` / `src/changelog.ts` / `README.md` 三处）
+- 当前版本：`0.4.1`（`package.json` / `src/changelog.ts` / `README.md` 三处）
 
 ---
 
@@ -139,7 +139,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 
 | 文件 | 作用 |
 | --- | --- |
-| `electron/main.cjs` | 单实例、`app://` 协议、CSP、窗口、下载对话框、权限白名单、IPC、自动更新、数据版本标记 |
+| `electron/main.cjs` | 单实例、`app://` 协议、CSP、窗口、下载对话框、权限白名单、IPC、自动更新、应用内卸载、数据版本标记 |
 | `electron/preload.cjs` | `contextBridge` 暴露 `runtime/app/secrets/llm/updates` |
 | `electron/data-safety.cjs` | `data-state.json`、升级前快照、快照列表/清理（最多 3 份） |
 | `electron/secrets.cjs` | Key 文件格式：首字节 1=DPAPI 加密 / 0=降级明文；原子写 |
@@ -206,6 +206,13 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 2. 读 `data-state.json`；若 `version` 与当前 `app.getVersion()` 不同 → 复制 5 个存储目录到快照（同一 from→to 只建一次，保留 3 份）。
 3. 配置 session 权限/下载 → 注册 `app://` 协议 → IPC → LLM 代理 → 自动更新监听 → 创建窗口。
 4. 窗口加载 `app://shiguang/index.html`；`app://` handler 只服务 `dist/`，防目录穿越，带 CSP、nosniff、缓存头。
+
+### 桌面卸载
+
+- 入口只在安装版的「设置 → 桌面版与更新」显示；二次确认后调用 `desktop.app.uninstall()`。
+- 主进程 `app:uninstall` 校验来源、Windows 平台和 `app.isPackaged`，从 `process.execPath` 同目录查找 NSIS 生成的 `Uninstall <exe>.exe`。
+- 找到后 `spawn(uninstaller, ['/currentuser'], { detached: true, stdio: 'ignore' })`，400ms 后 `app.quit()`，让卸载向导独立运行。
+- 卸载只删除程序文件和快捷方式；`electron-builder.yml` 保持 `deleteAppDataOnUninstall: false`，`%APPDATA%\Shiguang` 数据保留。找不到卸载器时提示改用 Windows「设置 → 应用」。
 
 ### 说说
 
@@ -317,6 +324,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 22. **计划图片/封面仍存 IndexedDB**：会同时进入全量 Base64 备份，图片多时备份体积明显增大。
 23. **音乐顺序只在 localStorage**：`interview-hub:track-order` 不进入备份；清浏览器数据或换设备后会回到按导入时间排序，播放模式也不持久化。
 24. **计划总览按更新时间排序**：没有搜索、筛选、手动排序或文件夹嵌套。
+25. **卸载依赖 NSIS 卸载器**：开发模式和 `win-unpacked` 没有 `Uninstall Shiguang.exe`，按钮会提示改用 Windows 设置；应用内卸载保留 `%APPDATA%\Shiguang` 数据目录。
 
 ---
 
@@ -328,7 +336,8 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 4. `npm run build:desktop` 生成 `release/Shiguang-Setup-<ver>.exe`、`latest.yml`、`.blockmap`。
 5. 在 GitHub 创建 Release，Tag `v<ver>`，上传上述三个文件。
 6. 用旧安装版验证：检查更新 → 下载 → 重启安装 → 数据仍在、快照已生成。
-7. 更新 `PROJECT_MAP.md`（如果流程/结构有变化），commit + push。
+7. 用安装版验证「设置 → 卸载拾光」：卸载向导启动、程序文件和快捷方式被删除、`%APPDATA%\Shiguang` 数据仍在。
+8. 更新 `PROJECT_MAP.md`（如果流程/结构有变化），commit + push。
 
 ### 0.4.0 验证记录（2026-11-02）
 
@@ -339,6 +348,17 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 - 已发布 GitHub Release `v0.4.0`（Latest），上传 exe、`latest.yml`、`.blockmap`；远端 `latest.yml` 与本地构建一致。
 - 安装包 SHA-256：`D0E2968644E9E65637FFCDE84F7A498EE01AAD4C3D3BB72409F258E0B71A4BCA`。
 - 尚未覆盖：用 0.3.0 安装版实际执行「检查更新 → 下载 → 重启安装」全流程；备份导入恢复；超长计划 PNG；图片很多时的导出性能；自定义颜色选择器的直接 E2E。
+
+### 0.4.1 验证记录（2026-11-02）
+
+- `npm run typecheck`、`npm run build`、`node --check electron/main.cjs` / `electron/preload.cjs` 通过。
+- 用 `npm run pack:desktop` 重新打包后，通过 CDP 对 `release/win-unpacked/Shiguang.exe` 做了冒烟测试：
+  - 设置页显示「卸载拾光」，确认框包含数据目录和「数据不会被删除」说明。
+  - 未安装目录没有卸载器时，点击返回「没有找到卸载程序」toast，应用保持运行。
+  - 在安装目录放入模拟卸载器后，确认会以 `/currentuser` 启动它，应用退出码 0，临时数据目录仍然存在。
+- `npm run build:desktop` 生成 `release/Shiguang-Setup-0.4.1.exe`（122,195,094 字节，SHA-256 `9AB5B68ECF1DC11610BAB45E07830A0BCAB2B48D0326D4CF5890B1675668AB1C`）；打包后的 `Shiguang.exe` 启动日志确认版本 0.4.1、渲染层就绪。
+- 该版本目前只在本地构建，**尚未发布 GitHub Release**。
+- 未执行真实 NSIS 卸载流程，以免影响本机已安装的 0.3.0；仍需在 0.4.1 安装版中确认卸载向导、程序文件和快捷方式删除、`%APPDATA%\Shiguang` 数据保留。
 
 ---
 
