@@ -11,6 +11,9 @@ import type {
   MediaKind,
   Note,
   NoteWithMedia,
+  Plan,
+  PlanImage,
+  PlanItem,
   Skill,
   Track,
 } from './types'
@@ -36,6 +39,9 @@ class InterviewHubDB extends Dexie {
   tracks!: Table<Track, string>
   skills!: Table<Skill, string>
   cards!: Table<DayCard, string>
+  plans!: Table<Plan, string>
+  planItems!: Table<PlanItem, string>
+  planImages!: Table<PlanImage, string>
 
   constructor() {
     super('interview-hub-db')
@@ -70,6 +76,18 @@ class InterviewHubDB extends Dexie {
             delete chat.mode
           })
       })
+    this.version(3).stores({
+      notes: 'id, createdAt, updatedAt, category',
+      media: 'id, noteId, createdAt',
+      chats: 'id, updatedAt, skillId',
+      messages: 'id, chatId, createdAt',
+      tracks: 'id, createdAt',
+      skills: 'id, createdAt, updatedAt',
+      cards: 'id, date, tag, createdAt',
+      plans: 'id, updatedAt',
+      planItems: 'id, planId, createdAt',
+      planImages: 'id, planId, itemId, createdAt',
+    })
   }
 }
 
@@ -448,10 +466,139 @@ export async function deleteTrack(trackId: string): Promise<void> {
   await db.tracks.delete(trackId)
 }
 
+/* ----------------------------- 计划表 ----------------------------- */
+
+export async function listPlans(): Promise<Plan[]> {
+  return db.plans.orderBy('updatedAt').reverse().toArray()
+}
+
+export async function getPlan(planId: string): Promise<Plan | null> {
+  return (await db.plans.get(planId)) ?? null
+}
+
+export async function createPlan(title = '未命名计划', coverFile?: File | null): Promise<Plan> {
+  let cover: Blob | undefined
+  let coverName: string | undefined
+  if (coverFile) {
+    if (!isImageFile(coverFile)) throw new Error('封面需要是图片文件')
+    if (coverFile.size > MAX_IMAGE_BYTES) throw new Error('封面图片超过 25MB，请压缩后再试')
+    const compressed = await compressImage(coverFile)
+    cover = compressed.blob
+    coverName = coverFile.name
+  }
+  const now = Date.now()
+  const plan: Plan = {
+    id: uid(),
+    title: title.trim().slice(0, 60) || '未命名计划',
+    ...(cover ? { cover, coverName } : {}),
+    blocks: [{ id: uid(), type: 'p', html: '' }],
+    createdAt: now,
+    updatedAt: now,
+  }
+  await db.plans.add(plan)
+  return plan
+}
+
+export async function updatePlan(
+  planId: string,
+  patch: Partial<Pick<Plan, 'title' | 'cover' | 'coverName' | 'blocks'>>,
+): Promise<void> {
+  const existing = await db.plans.get(planId)
+  if (!existing) return
+  const next: Plan = { ...existing, ...patch, updatedAt: Date.now() }
+  if ('cover' in patch && !patch.cover) {
+    delete next.cover
+    delete next.coverName
+  }
+  await db.plans.put(next)
+}
+
+export async function deletePlan(planId: string): Promise<void> {
+  await db.transaction('rw', [db.plans, db.planItems, db.planImages], async () => {
+    await db.planImages.where('planId').equals(planId).delete()
+    await db.planItems.where('planId').equals(planId).delete()
+    await db.plans.delete(planId)
+  })
+}
+
+export async function listPlanItems(planId: string): Promise<PlanItem[]> {
+  return db.planItems.where('planId').equals(planId).sortBy('createdAt')
+}
+
+export async function addPlanItem(planId: string, text = ''): Promise<PlanItem> {
+  const now = Date.now()
+  const item: PlanItem = {
+    id: uid(),
+    planId,
+    text: text.slice(0, 300),
+    checked: false,
+    details: '',
+    createdAt: now,
+    updatedAt: now,
+  }
+  await db.planItems.add(item)
+  return item
+}
+
+export async function updatePlanItem(
+  itemId: string,
+  patch: Partial<Pick<PlanItem, 'text' | 'checked' | 'details'>>,
+): Promise<void> {
+  await db.planItems.update(itemId, { ...patch, updatedAt: Date.now() })
+}
+
+export async function deletePlanItem(itemId: string): Promise<void> {
+  await db.transaction('rw', [db.planItems, db.planImages], async () => {
+    await db.planImages.where('itemId').equals(itemId).delete()
+    await db.planItems.delete(itemId)
+  })
+}
+
+export async function listPlanImages(planId: string): Promise<PlanImage[]> {
+  return db.planImages.where('planId').equals(planId).sortBy('createdAt')
+}
+
+export async function addPlanImage(
+  planId: string,
+  itemId: string,
+  file: File,
+  caption = '',
+): Promise<PlanImage> {
+  if (!isImageFile(file)) throw new Error(`「${file.name}」不是支持的图片格式`)
+  if (file.size > MAX_IMAGE_BYTES) throw new Error(`图片「${file.name}」超过 25MB，请压缩后再试`)
+  const compressed = await compressImage(file)
+  const image: PlanImage = {
+    id: uid(),
+    planId,
+    itemId,
+    name: file.name,
+    mime: compressed.blob.type || file.type || 'image/webp',
+    size: compressed.blob.size,
+    caption: caption.trim().slice(0, 160),
+    blob: compressed.blob,
+    createdAt: Date.now(),
+  }
+  await db.planImages.add(image)
+  return image
+}
+
+export async function updatePlanImage(
+  imageId: string,
+  patch: Partial<Pick<PlanImage, 'caption'>>,
+): Promise<void> {
+  const next = { ...patch }
+  if (typeof next.caption === 'string') next.caption = next.caption.slice(0, 160)
+  await db.planImages.update(imageId, next)
+}
+
+export async function deletePlanImage(imageId: string): Promise<void> {
+  await db.planImages.delete(imageId)
+}
+
 /* --------------------------- 统计 / 工具 --------------------------- */
 
 export async function getContentCounts() {
-  const [notes, media, chats, messages, tracks, cards, skills] = await Promise.all([
+  const [notes, media, chats, messages, tracks, cards, skills, plans] = await Promise.all([
     db.notes.count(),
     db.media.count(),
     db.chats.count(),
@@ -459,8 +606,9 @@ export async function getContentCounts() {
     db.tracks.count(),
     db.cards.count(),
     db.skills.count(),
+    db.plans.count(),
   ])
-  return { notes, media, chats, messages, tracks, cards, skills }
+  return { notes, media, chats, messages, tracks, cards, skills, plans }
 }
 
 export async function getStorageStats() {
@@ -474,7 +622,18 @@ export async function getStorageStats() {
 export async function clearAllContent(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.notes, db.media, db.chats, db.messages, db.tracks, db.skills, db.cards],
+    [
+      db.notes,
+      db.media,
+      db.chats,
+      db.messages,
+      db.tracks,
+      db.skills,
+      db.cards,
+      db.plans,
+      db.planItems,
+      db.planImages,
+    ],
     async () => {
       await Promise.all([
         db.notes.clear(),
@@ -484,6 +643,9 @@ export async function clearAllContent(): Promise<void> {
         db.tracks.clear(),
         db.skills.clear(),
         db.cards.clear(),
+        db.plans.clear(),
+        db.planItems.clear(),
+        db.planImages.clear(),
       ])
     },
   )

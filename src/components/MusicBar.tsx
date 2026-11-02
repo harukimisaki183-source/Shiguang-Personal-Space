@@ -12,7 +12,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { useMusic } from '../contexts/MusicContext'
+import { useMusic, type RepeatMode } from '../contexts/MusicContext'
 import { formatDuration } from '../utils'
 
 export function MusicBar() {
@@ -32,7 +32,7 @@ export function MusicBar() {
     playPrev,
     seek,
     setVolume,
-    cycleRepeat,
+    setRepeat,
   } = useMusic()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -123,14 +123,19 @@ export function MusicBar() {
       </div>
 
       <div className="music-actions">
-        <button
-          className={`icon-btn music-icon ${repeat !== 'off' ? 'active' : ''}`}
-          onClick={cycleRepeat}
-          title={repeat === 'off' ? '不循环' : repeat === 'all' ? '列表循环' : '单曲循环'}
-          aria-label="切换循环模式"
-        >
-          {repeat === 'one' ? <Repeat1 size={17} /> : <Repeat size={17} />}
-        </button>
+        <label className={`music-mode ${repeat !== 'off' ? 'active' : ''}`} title="播放模式">
+          {repeat === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
+          <select
+            className="music-mode-select"
+            value={repeat}
+            onChange={(event) => setRepeat(event.target.value as RepeatMode)}
+            aria-label="播放模式"
+          >
+            <option value="off">顺序播放</option>
+            <option value="all">列表循环</option>
+            <option value="one">单曲循环</option>
+          </select>
+        </label>
         <button
           className="icon-btn music-icon"
           onClick={() => setVolume(volume > 0 ? 0 : 0.7)}

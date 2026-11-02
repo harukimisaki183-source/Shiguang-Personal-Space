@@ -34,7 +34,9 @@ interface MusicContextValue {
   playPrev: () => void
   seek: (seconds: number) => void
   setVolume: (value: number) => void
-  cycleRepeat: () => void
+  setRepeat: (mode: RepeatMode) => void
+  moveTrack: (id: string, direction: -1 | 1) => void
+  resetOrder: () => void
   importFiles: (files: FileList | File[]) => Promise<void>
   removeTrack: (id: string) => Promise<void>
 }
@@ -59,24 +61,57 @@ function readStoredTrack(): string | null {
   }
 }
 
+function readStoredOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.trackOrder)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((id): id is string => typeof id === 'string').slice(0, 500)
+  } catch {
+    return []
+  }
+}
+
 export function MusicProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast()
-  const tracks = useLiveQuery(() => db.tracks.orderBy('createdAt').toArray(), [], []) ?? []
+  const liveTracks = useLiveQuery(() => db.tracks.orderBy('createdAt').toArray())
+  const tracksLoaded = liveTracks !== undefined
+  const tracks = liveTracks ?? []
+  const [order, setOrder] = useState<string[]>(readStoredOrder)
   const [currentId, setCurrentId] = useState<string | null>(readStoredTrack)
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolumeState] = useState(readStoredVolume)
-  const [repeat, setRepeat] = useState<RepeatMode>('all')
+  const [repeat, setRepeatState] = useState<RepeatMode>('all')
   const [importing, setImporting] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  const orderedTracks = useMemo(() => {
+    if (!tracks.length) return []
+    const byId = new Map(tracks.map((track) => [track.id, track]))
+    const result: Track[] = []
+    for (const id of order) {
+      const track = byId.get(id)
+      if (!track) continue
+      result.push(track)
+      byId.delete(id)
+    }
+    for (const track of tracks) {
+      if (byId.has(track.id)) result.push(track)
+    }
+    return result
+  }, [tracks, order])
+
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const endedRef = useRef<() => void>(() => {})
-  const current = currentId ? tracks.find((track) => track.id === currentId) ?? null : null
+  const current = currentId
+    ? orderedTracks.find((track) => track.id === currentId) ?? null
+    : null
 
-  const tracksRef = useRef(tracks)
-  tracksRef.current = tracks
+  const tracksRef = useRef(orderedTracks)
+  tracksRef.current = orderedTracks
   const currentIdRef = useRef(currentId)
   currentIdRef.current = currentId
   const repeatRef = useRef(repeat)
@@ -93,6 +128,34 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       // ignore
     }
   }, [])
+
+  /* 把新导入/恢复的音乐追加到手动顺序末尾，并移除已删除的曲目 */
+  useEffect(() => {
+    if (!tracksLoaded) return
+    setOrder((prev) => {
+      const ids = new Set(tracks.map((track) => track.id))
+      const next = prev.filter((id) => ids.has(id))
+      const known = new Set(next)
+      for (const track of tracks) {
+        if (known.has(track.id)) continue
+        next.push(track.id)
+        known.add(track.id)
+      }
+      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+        return prev
+      }
+      return next
+    })
+  }, [tracks, tracksLoaded])
+
+  useEffect(() => {
+    if (!tracksLoaded) return
+    try {
+      localStorage.setItem(STORAGE_KEYS.trackOrder, JSON.stringify(order))
+    } catch {
+      // ignore
+    }
+  }, [order, tracksLoaded])
 
   const playNext = useCallback(() => {
     const list = tracksRef.current
@@ -231,19 +294,19 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /* 当前歌曲被删除或音乐库被整体替换 */
   useEffect(() => {
-    if (!currentId) return
-    if (tracks.length === 0) {
+    if (!tracksLoaded || !currentId) return
+    if (orderedTracks.length === 0) {
       setCurrentTrackId(null)
       setIsPlaying(false)
       return
     }
-    if (!tracks.some((track) => track.id === currentId)) {
+    if (!orderedTracks.some((track) => track.id === currentId)) {
       const audio = audioRef.current
       audio?.pause()
-      setCurrentTrackId(tracks[0].id)
+      setCurrentTrackId(orderedTracks[0].id)
       setIsPlaying(false)
     }
-  }, [tracks, currentId, setCurrentTrackId])
+  }, [tracksLoaded, orderedTracks, currentId, setCurrentTrackId])
 
   /* 系统媒体控制（Windows 媒体浮层 / 媒体键） */
   useEffect(() => {
@@ -326,9 +389,26 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     setVolumeState(clamp(value, 0, 1))
   }, [])
 
-  const cycleRepeat = useCallback(() => {
-    setRepeat((prev) => (prev === 'off' ? 'all' : prev === 'all' ? 'one' : 'off'))
+  const setRepeat = useCallback((mode: RepeatMode) => {
+    setRepeatState(mode)
   }, [])
+
+  const moveTrack = useCallback((id: string, direction: -1 | 1) => {
+    setOrder((prev) => {
+      const index = prev.indexOf(id)
+      if (index < 0) return prev
+      const target = index + direction
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(index, 1)
+      next.splice(target, 0, moved)
+      return next
+    })
+  }, [])
+
+  const resetOrder = useCallback(() => {
+    setOrder(tracks.map((track) => track.id))
+  }, [tracks])
 
   const importFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -378,7 +458,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<MusicContextValue>(
     () => ({
-      tracks,
+      tracks: orderedTracks,
       current,
       isPlaying,
       progress,
@@ -394,12 +474,14 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       playPrev,
       seek,
       setVolume,
-      cycleRepeat,
+      setRepeat,
+      moveTrack,
+      resetOrder,
       importFiles,
       removeTrack,
     }),
     [
-      tracks,
+      orderedTracks,
       current,
       isPlaying,
       progress,
@@ -414,7 +496,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       playPrev,
       seek,
       setVolume,
-      cycleRepeat,
+      setRepeat,
+      moveTrack,
+      resetOrder,
       importFiles,
       removeTrack,
     ],

@@ -3,20 +3,22 @@
 > 这份文件是给 Claude / 未来的维护者看的，不是用户文档。目标：任何一次优化前，能在几分钟内重新建立完整心智模型。
 > 用户向说明在 `README.md`；这里记录的是「东西在哪、怎么连、什么不能碰、改哪里」。
 >
-> 最后扫描：2026-11-02 · 对应版本 **0.3.0**
+> 最后扫描：2026-11-02 · 对应版本 **0.4.0**
 
 ---
 
 ## 0. 一句话
 
-「拾光」是一个**本地优先**的个人空间：说说（图文/视频）、AI 技能对话、每日卡片、本地音乐。
+「拾光」是一个**本地优先**的个人空间：说说（图文/视频）、AI 技能对话、计划表、每日卡片、本地音乐。
 同一套 React 代码同时跑在 **Web（Vite）** 和 **Windows 桌面版（Electron + NSIS）**，没有后端，所有数据在本机。
+
+当前页面：说说 / 对话 / **计划表** / 设置。计划表是 0.4.0 新增的第四个主页面。
 
 - 仓库：`git@github.com:harukimisaki183-source/Shiguang-Personal-Space.git`
 - 分支：`main`（本地与 origin 同步）
 - 产品名/可执行文件：拾光 / `Shiguang.exe`
 - appId：`com.harukimisaki.shiguang`
-- 当前版本：`0.3.0`（`package.json` / `src/changelog.ts` / `README.md` 三处）
+- 当前版本：`0.4.0`（`package.json` / `src/changelog.ts` / `README.md` 三处）
 
 ---
 
@@ -29,7 +31,7 @@
    它决定了桌面版 IndexedDB/localStorage 的 origin。
 3. 默认数据目录名 `Shiguang`（`APP_USER_DATA`，开发版是 `Shiguang Dev`）。
 4. Dexie 数据库名 `interview-hub-db`（`src/db.ts`）。
-5. 备份 JSON 的标识 `app: "interview-hub"` 与 `format` 版本（`src/backup.ts`）。
+5. 备份 JSON 的标识 `app: "interview-hub"` 与 `format` 版本（当前导出 format 3，仍接受 1/2；`src/backup.ts`）。
 6. 内置技能 ID（如 `general`、`interview-mock`、`daily-card`）——旧对话通过 `skillId` 引用它们。
 7. 桌面版 **API Key 不写 localStorage、不进备份**；只经 IPC 存到 `secure/api-key.bin`。
 8. 桌面 CSP 与 `isTrusted` 来源校验不能放宽；渲染层不要绕过主进程直连外部 API。
@@ -50,7 +52,7 @@ npm run pack:desktop   # 免安装目录 release/win-unpacked/
 npm run build:desktop  # NSIS 安装包 -> release/Shiguang-Setup-<ver>.exe
 ```
 
-- 技术栈：React 19 + TypeScript（strict）+ Vite 8 + Dexie 4 + react-markdown/remark-gfm + lucide-react + date-fns。
+- 技术栈：React 19 + TypeScript（strict）+ Vite 8 + Dexie 4 + react-markdown/remark-gfm + lucide-react + date-fns + html-to-image（计划表 PNG 导出）。
 - Electron 45，`electron-builder`，`electron-updater`（唯一生产依赖）。
 - 打包只针对 Windows x64 NSIS；`--publish never`，Release 手动上传。
 - 没有 ESLint、没有测试框架。`typecheck` 通过不代表运行正确。
@@ -65,8 +67,9 @@ npm run build:desktop  # NSIS 安装包 -> release/Shiguang-Setup-<ver>.exe
 │  App.tsx ── hash 路由 #/blog #/chat #/settings                                                  │
 │    ├─ BlogPage    → Dexie(notes/media)                                                         │
 │    ├─ ChatPage    → Dexie(chats/messages/skills/cards) + llm.ts                                 │
+│    ├─ PlansPage   → Dexie(plans/planItems/planImages) + planExport.ts                          │
 │    ├─ SettingsPage→ localStorage(settings) + backup.ts + desktop bridge                         │
-│    └─ MusicProvider (全局唯一 <audio>) → Dexie(tracks)                                          │
+│    └─ MusicProvider (全局唯一 <audio>) → Dexie(tracks) + localStorage(顺序)                    │
 │                                                                                                 │
 │  window.shiguangDesktop  ← preload.cjs 暴露的受限桥                                              │
 └───────────────────────────────┬─────────────────────────────────────────────────────────────────┘
@@ -97,7 +100,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 | `src/types.ts` | 所有领域类型、分类/标签常量、`Settings` |
 | `src/hooks.ts` | `useHashRoute`、`useObjectUrl` |
 | `src/utils.ts` | uid、日期/字节/时长格式化、图片压缩、头像裁剪、媒体探测、Blob↔DataURL、下载、复制 |
-| `src/styles.css` | **全部样式，5,687 行**，按注释分区块；无 CSS Modules |
+| `src/styles.css` | **全部样式，7,110 行**，按注释分区块；无 CSS Modules |
 | `src/changelog.ts` | `APP_VERSION` + 4 个版本的 `CHANGELOG`（更新公告数据源） |
 
 ### 数据与业务
@@ -108,7 +111,8 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 | `src/skills.ts` | 7 个内置技能（6 chat + 1 card）、分组、`resolveSkill`、旧 `mode → skillId` 映射 |
 | `src/llm.ts` | 端点拼接、历史裁剪、SSE 解析、桌面代理调用、连接测试、演示模式虚构回答 |
 | `src/cards.ts` | 5 类卡片字段定义/配色、预览数据、文字版、Canvas 1080×1440 PNG 渲染导出 |
-| `src/backup.ts` | 全量导出（媒体/音乐转 Base64）与恢复（校验后事务性清空并重灌） |
+| `src/planExport.ts` | 计划富文本白名单清理、互动 HTML 生成、离屏 DOM 转 PNG（html-to-image） |
+| `src/backup.ts` | 全量导出（媒体/音乐/计划图片转 Base64）与恢复（校验后事务性清空并重灌），format 3 |
 | `src/storage.ts` | localStorage 设置加载/保存/校验、最近版本号、各种 storage key |
 | `src/mediaFiles.ts` | 媒体数量/大小限制的前端校验（9 个、图片 25MB、视频 120MB、总计 300MB） |
 | `src/desktop.ts` | `window.shiguangDesktop` 的 TypeScript 类型、`isDesktopApp`、`getDesktopBridge` |
@@ -124,8 +128,10 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 | `src/components/StartupError.tsx` | 数据库打不开时的恢复引导 |
 | `src/components/blog/*` | 发布器、记录卡、编辑弹窗、日历、媒体缩略图、Lightbox |
 | `src/components/chat/*` | 技能库/技能编辑、卡片工作室/实时预览/卡片库 |
+| `src/components/plans/*` | 计划编辑页、正文富文本、计划条、图片放大预览 |
 | `src/pages/BlogPage.tsx` | 记录流 + 搜索/分类/日期筛选 + 右侧日历与统计 |
 | `src/pages/ChatPage.tsx` | 对话列表 + 技能切换 + 流式消息 + 技能/卡片入口 |
+| `src/pages/PlansPage.tsx` | 计划表总览（文件夹网格、封面、进度）+ 新建计划弹窗 |
 | `src/pages/SettingsPage.tsx` | 资料/头像、大模型配置、主题、备份恢复、桌面信息与更新、关于 |
 | `src/contexts/*` | Settings（含桌面 Key 同步）、Toast、Confirm、Music（全局播放器） |
 
@@ -143,7 +149,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 
 ## 5. 数据模型
 
-### Dexie `interview-hub-db`（version 2，`src/db.ts:45`）
+### Dexie `interview-hub-db`（version 3，`src/db.ts`）
 
 | 表 | 主键 / 索引 | 关键字段 |
 | --- | --- | --- |
@@ -154,9 +160,13 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 | `tracks` | `id, createdAt` | title, artist, fileName, mime, size, duration, **blob** |
 | `skills` | `id, createdAt, updatedAt` | 自定义技能：icon/name/description/systemPrompt，`custom: true` |
 | `cards` | `id, date, tag, createdAt` | type(plan/summary), title, fields: Record<string,string> |
+| `plans` | `id, updatedAt` | title, **cover Blob?**, coverName?, blocks: PlanBlock[] |
+| `planItems` | `id, planId, createdAt` | text, checked, details, updatedAt |
+| `planImages` | `id, planId, itemId, createdAt` | name, mime, size, caption, **blob**, createdAt |
 
 - 版本升级方式：新增 `this.version(n).stores(...)`，**保留旧声明**；桌面主进程会在跨版本启动前自动快照。
-- 媒体/音乐直接存 Blob，无独立文件目录。
+- 媒体/音乐/计划图片直接存 Blob，无独立文件目录。
+- 计划正文是 `PlanBlock[]`（`h1/h2/h3/p` + 受限 HTML），直接嵌在 `plans` 记录里。
 
 ### localStorage（`src/storage.ts`）
 
@@ -166,6 +176,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 | `interview-hub:last-seen-version` | 已读更新公告版本 |
 | `interview-hub:seeded` | 是否已插入欢迎记录 |
 | `interview-hub:last-track` / `interview-hub:volume` | 音乐恢复状态 |
+| `interview-hub:track-order` | 手动播放顺序（Track ID 数组），与音乐 Blob 分开保存 |
 
 ### 桌面数据目录 `%APPDATA%\Shiguang`
 
@@ -213,6 +224,18 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 - 失败：错误作为 assistant 消息写入（`error: true`），并 toast。
 - 注意：`ChatPage` 卸载时（切到说说/设置）会 abort 当前生成。
 
+### 计划表
+
+- 总览：`PlansPage` 用 `listPlans()` + `db.planItems` 统计完成度，渲染文件夹网格；封面是 `plans.cover` Blob，通过 object URL 显示。
+- 新建：弹窗输入标题 + 可选封面（压缩后存 Blob）→ `createPlan` 写入一条默认段落。
+- 编辑：`PlanEditor` 一次加载 plan + planItems + planImages，之后维护本地 state；plan 的标题/正文/封面和计划条文字/详情/图片备注都做 450ms 防抖保存，组件卸载时 `flushPending()`。
+- 正文：`PlanRichText` 是多个 contenteditable 块（h1/h2/h3/p），工具栏用 `document.execCommand('bold')` 和 `foreColor`；块内 HTML 在失焦时用 `sanitizeRichHtml` 清理。
+- 计划条：左侧勾选按钮立即写 DB；右侧三角展开/收起详情；详情里可添加图片和多行文字。
+- 计划图片：`addPlanImage` 复用 `compressImage`，单独存 `planImages`；小图显示在计划条末尾，点击打开 `PlanImageViewer`，备注放在图片下方的独立区域，不覆盖图片。
+- 导出 HTML：`buildPlanInteractiveHtml` 生成自包含 HTML（无图片），保留 checkbox 和详情展开/收起，勾选状态用 localStorage 记忆。
+- 导出 PNG：把图片转 data URL，生成离屏 `.plan-print-view` DOM，交给 `html-to-image` 的 `toPng`；高度超过 7000px 时降到 1x 像素比，生成后下载。
+- 备份恢复：`plans / planItems / planImages` 全部纳入备份；封面和图片转 Base64，format 升到 3。
+
 ### 每日卡片
 
 - 定义在 `cards.ts`：5 个标签（日常/工作/技能/兴趣/求职），每个标签有 `fields`（text/textarea/number）、配色、渐变；`plan` 与 `summary` 通过 `planLabel` 换文案。
@@ -226,16 +249,19 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 - `MusicProvider` 全局只创建一个 `HTMLAudioElement`，切换页面不断播。
 - 导入：`addTracks` 校验音频、单曲 ≤80MB、按 `fileName::size` 去重、读取时长，Blob 存 Dexie。
 - 播放：当前曲 Blob → object URL → audio.src；音量/上次曲目持久化。
-- 结束/上一首/下一首/循环（off/all/one）、Media Session 系统媒体键。
-- 删除当前曲时自动切到相邻曲并暂停。
+- 播放顺序：`order` 是 Track ID 数组，存 `interview-hub:track-order`；`orderedTracks` = 手动顺序 + 新曲追加 + 已删曲过滤。
+- 播放模式：off = 顺序播放（最后一首结束停止）、all = 列表循环、one = 单曲循环；`MusicBar` / `MusicDrawer` 都有选择器。
+- 音乐库「调整顺序」模式：上移/下移按钮调用 `moveTrack`，立即持久化，不影响当前播放。
+- Media Session 系统媒体键；删除当前曲时自动切到相邻曲并暂停。
+- 注意：0.4.0 修复了「刷新后上次播放曲目被误清空」的问题（`tracksLoaded` 前不执行清理）。
 
 ### 设置 / 备份 / 更新
 
 - 设置页维护一份本地 `form`，与 context 比较显示「未保存」浮动条；主题切换即时生效。
 - 头像：本地图片居中裁剪 256×256 → WebP data URL（≤12MB 源文件）。
 - 保存设置：`SettingsProvider` 立即写 localStorage + 主题；桌面版 Key 变化时再调 `secrets.setApiKey`。
-- 导出：`buildBackup` 读取全部表，媒体/音乐转 data URL，去掉 apiKey，输出 `拾光备份-YYYY-MM-DD.json`。
-- 恢复：校验 `app/format/数组结构` → 解析媒体 → 事务性清空 7 张表并重灌；设置合并但保留当前 apiKey。
+- 导出：`buildBackup` 读取全部表，媒体/音乐/计划封面/计划图片转 data URL，去掉 apiKey，输出 `拾光备份-YYYY-MM-DD.json`（format 3）。
+- 恢复：校验 `app/format/数组结构` → 解析媒体/计划图片 → 事务性清空 10 张表并重灌；旧备份缺少 plans 数组时按空处理；设置合并但保留当前 apiKey。
 - 更新：`electron-updater` 从 GitHub Releases 检查；`autoDownload=false`，状态经 `updates:status` 推给设置页；下载完成后重启安装。
 
 ---
@@ -249,6 +275,9 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 | 新增页面 | `PageKey` → `hooks.ts readPage` → `Sidebar NAV_ITEMS` → `App.tsx` 渲染 → `Topbar TITLES` → 样式；需要深链就扩展 hash |
 | 新增数据表/字段 | `db.ts` 新 version（保留旧声明）→ 类型 → CRUD → `backup.ts` 导出/恢复 → `getContentCounts`/`clearAllContent` → 设置页统计（可选）→ 本文件 |
 | 新增卡片标签 | `types.ts CARD_TAGS` + `cards.ts CARD_TAG_INFO`（字段、配色、渐变）；预览/PNG/卡片库自动复用 |
+| 新增计划正文块类型 | `types.ts PlanBlockType` + `PlanRichText BLOCK_TYPES/PLACEHOLDERS` + CSS + `planExport.blocksToHtml` 的标签映射 |
+| 改计划导出样式 | 互动 HTML 在 `planExport.baseDocumentStyles`；PNG 在 `styles.css` 的 `.plan-print-view` 作用域 |
+| 改音乐排序/播放模式 | `MusicContext` 的 `order` / `orderedTracks` / `moveTrack` / `setRepeat`；UI 在 `MusicBar`、`MusicDrawer` |
 | 新增设置项 | `types.ts Settings` + `DEFAULT_SETTINGS` + `loadSettings` 校验 + `SettingsPage` 表单；敏感值不要进 localStorage/备份 |
 | 新增 API 服务预设 | `SettingsPage.tsx` 的 `PROVIDERS` 数组 |
 | 新增桌面能力 | `electron/main.cjs` handler（必须 `isTrusted`）→ `preload.cjs` 暴露 → `src/desktop.ts` 类型 → UI |
@@ -273,14 +302,21 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 7. **切页会中断对话生成**：`ChatPage` 卸载时 abort（已生成的部分会以 assistant 消息保存）。
 8. **没有 ErrorBoundary**：renderer 运行时渲染异常可能直接白屏（启动阶段有 `StartupError`）。
 9. **没有托盘/后台**：关闭窗口 = 退出，音乐停止；无开机启动。
-10. **无自动化测试/无 ESLint**：回归完全靠手工；高风险模块是 `backup.ts`、`db.ts`、`llm.ts`、`cards.ts`、Electron IPC。
-11. **样式单文件 5,687 行**：类名全局，新增 UI 时注意复用现有 `card/btn/chip/field` 体系，避免冲突。
+10. **无自动化测试/无 ESLint**：回归完全靠手工；高风险模块是 `backup.ts`、`db.ts`、`llm.ts`、`cards.ts`、`planExport.ts`、Electron IPC。
+11. **样式单文件（现约 7k 行）**：类名全局，新增 UI 时注意复用现有 `card/btn/chip/field` 体系，避免冲突。
 12. **桌面版仅 Windows x64**：无 mac/linux 构建配置；安装包未签名，SmartScreen 会警告。
 13. **Web 版限制**：API Key 明文 localStorage；直连 API 可能 CORS；`connect-src 'self'` 只约束桌面版。
 14. **网络/更新依赖 GitHub**：自动更新需要 Release 里上传 exe + `latest.yml` + `.blockmap`；国内网络可能慢。
 15. **中英文**：UI 全中文，无 i18n。
 16. **`index.html` favicon 用绝对路径 `/favicon.svg`**：部署在子路径时可能 404（桌面 `app://` 根路径正常）。
-17. **无数据库加密**：本地内容（说说/对话/卡片）是明文，API Key 例外。
+17. **无数据库加密**：本地内容（说说/对话/计划/卡片）是明文，API Key 例外。
+18. **计划 PNG 依赖离屏 DOM + html-to-image**：超长计划可能触发 canvas 尺寸/内存限制；代码超过 7000px 时降为 1x，图片很多时生成会变慢。
+19. **计划保存有 450ms 防抖**：正常切页会在卸载时 flush，但写入是异步的；如果在保存完成前强杀应用，最后不到 1 秒的输入可能丢失。
+20. **富文本使用 contenteditable + execCommand**：`execCommand` 已废弃，目前依赖 Chromium 行为；没有撤销/重做、列表、对齐等高级格式，粘贴被降级为纯文本。
+21. **互动 HTML 不含图片**（按需求设计）；勾选状态用导出文件的 localStorage 记忆，`file://` 或隐私模式下可能无法跨会话保留。
+22. **计划图片/封面仍存 IndexedDB**：会同时进入全量 Base64 备份，图片多时备份体积明显增大。
+23. **音乐顺序只在 localStorage**：`interview-hub:track-order` 不进入备份；清浏览器数据或换设备后会回到按导入时间排序，播放模式也不持久化。
+24. **计划总览按更新时间排序**：没有搜索、筛选、手动排序或文件夹嵌套。
 
 ---
 
@@ -294,6 +330,12 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 6. 用旧安装版验证：检查更新 → 下载 → 重启安装 → 数据仍在、快照已生成。
 7. 更新 `PROJECT_MAP.md`（如果流程/结构有变化），commit + push。
 
+### 0.4.0 验证记录（2026-11-02）
+
+- `npm run typecheck`、`npm run build` 通过。
+- 用 headless Edge + Playwright 做过一轮冒烟测试：新建计划/封面、正文加粗与颜色、计划条勾选/取消、详情展开、图片与备注、放大预览、互动 HTML（checkbox 可勾选、详情可展开、无 `<img>`）、PNG 下载（有效 PNG 签名）、刷新后计划与勾选状态保留、播放模式选择、手动排序持久化、上次播放曲目恢复。
+- 尚未覆盖：桌面版打包、备份导入恢复、超长计划 PNG、图片很多时的导出性能。
+
 ---
 
 ## 10. 下一步候选（按收益/成本粗排）
@@ -304,6 +346,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 - **桌面体验**：托盘常驻、关闭到托盘、后台播放、开机启动、代码签名、应用图标 `.ico` 校验。
 - **对话**：跨页面继续生成（把流式状态提升到全局）、对话搜索/重命名/导出、上下文长度提示、模型参数预设。
 - **记录/卡片**：全文搜索、按月/标签统计、单条导出、卡片模板自定义。
+- **计划表**：搜索与筛选、拖拽排序/文件夹嵌套、正文撤销重做与更多格式、计划完成度统计、导出主题与封面裁剪。
 - **同步（可选）**：端到端加密的轻量后端；在此之前保持「本地优先 + 备份」定位。
 
 ---

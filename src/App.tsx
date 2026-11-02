@@ -13,6 +13,7 @@ import { seedIfNeeded } from './db'
 import { useHashRoute } from './hooks'
 import { BlogPage } from './pages/BlogPage'
 import { ChatPage } from './pages/ChatPage'
+import { PlansPage } from './pages/PlansPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { getLastSeenVersion, markVersionSeen } from './storage'
 
@@ -47,6 +48,7 @@ function AppShell() {
         <div className="page">
           {page === 'blog' && <BlogPage />}
           {page === 'chat' && <ChatPage onGoSettings={() => navigate('settings')} />}
+          {page === 'plans' && <PlansPage />}
           {page === 'settings' && (
             <SettingsPage onShowUpdateLog={() => setUpdateOpen(true)} />
           )}

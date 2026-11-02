@@ -1,8 +1,8 @@
 # 拾光 · 个人空间
 
-一个「本地优先」的个人空间：记录说说、和 AI 对话、做每天的卡片，听自己的音乐。现在同时提供 Web 版和 Windows 桌面版。
+一个「本地优先」的个人空间：记录说说、和 AI 对话、制定计划表、做每天的卡片，听自己的音乐。现在同时提供 Web 版和 Windows 桌面版。
 
-> 当前版本 **0.3.0**。安装包见 [GitHub Releases](https://github.com/harukimisaki183-source/Shiguang-Personal-Space/releases/latest)。桌面安装包未做代码签名，Windows 可能提示「未知发布者」，可点「更多信息 → 仍要运行」。
+> 当前版本 **0.4.0**。安装包见 [GitHub Releases](https://github.com/harukimisaki183-source/Shiguang-Personal-Space/releases/latest)。桌面安装包未做代码签名，Windows 可能提示「未知发布者」，可点「更多信息 → 仍要运行」。
 
 ## 已实现
 
@@ -18,14 +18,22 @@
   - 自定义技能：图标、名称、说明和系统提示词，可编辑、删除
   - 演示模式开箱即用；也支持 OpenAI 兼容接口
   - 支持 DeepSeek / 通义千问 / 智谱 GLM / Kimi，以及自定义 API 快速填入
+- **计划表**
+  - 文件夹式计划总览，每份计划可以设置图片封面
+  - 正文支持大 / 中 / 小三级标题、加粗和自由文字颜色
+  - 计划条可勾选 / 取消勾选，点击末尾三角展开详细内容
+  - 每条计划末尾可以插入带备注的小图片，点击放大查看，备注显示在图片下方
+  - 导出高清 PNG 长图，或导出保留勾选与展开互动的 HTML（HTML 不含图片）
 - **每日卡片**
   - 两种类型：计划 / 总结；五个标签：日常、工作、技能、兴趣、求职
   - 求职卡片自动汇总 BOSS直聘、网申和其他渠道的投递数量
   - 实时预览、卡片库、编辑删除、1080 × 1440 PNG 导出或复制文字
 - **音乐播放器**
   - 导入本地音乐，保存到 IndexedDB
-  - 全局播放器：播放/暂停、上一首/下一首、进度、音量、循环
-  - 切换页面不中断；支持系统媒体键（Media Session）
+  - 全局播放器：播放/暂停、上一首/下一首、进度、音量
+  - 三种播放模式：顺序播放、列表循环、单曲循环
+  - 音乐库中可以手动上移 / 下移调整播放顺序，顺序会保存在本机
+  - 切换页面不中断；支持系统媒体键（Media Session）；会记住上次播放的曲目
 - **桌面版**
   - Windows NSIS 安装包，创建桌面与开始菜单快捷方式
   - 程序文件与应用数据分开存放，覆盖安装/自动更新不改动内容
@@ -86,7 +94,7 @@ npm install
 | 数据 | 位置 |
 | --- | --- |
 | 应用数据根目录 | `%APPDATA%\Shiguang` |
-| 说说、媒体、对话、消息、卡片、自定义技能、音乐 | `%APPDATA%\Shiguang\IndexedDB`（大的媒体 Blob 还可能外置在 `blob_storage`） |
+| 说说、媒体、对话、消息、计划表、计划图片、卡片、自定义技能、音乐 | `%APPDATA%\Shiguang\IndexedDB`（大的媒体 Blob 还可能外置在 `blob_storage`） |
 | 设置、主题、头像、自定义快速填入 | `%APPDATA%\Shiguang\Local Storage` |
 | API Key | `%APPDATA%\Shiguang\secure\api-key.bin`（Windows DPAPI 加密） |
 | 升级前数据快照 | `%APPDATA%\Shiguang\backups\pre-update` |
@@ -101,7 +109,7 @@ npm install
 
 | 数据 | 位置 |
 | --- | --- |
-| 说说、媒体、对话、消息、卡片、自定义技能、音乐 | 浏览器 IndexedDB：`interview-hub-db` |
+| 说说、媒体、对话、消息、计划表、计划图片、卡片、自定义技能、音乐 | 浏览器 IndexedDB：`interview-hub-db` |
 | 设置、主题、头像、API Key、自定义快速填入 | localStorage：`interview-hub:settings:v1` |
 | 已读版本号 | localStorage：`interview-hub:last-seen-version` |
 
@@ -142,7 +150,7 @@ Web 版更新的是服务器上的静态文件。只要仍然使用同一个协�
 2. 安装并打开桌面版；
 3. 在桌面版「设置 → 数据管理 → 导入备份」选择刚才的 JSON。
 
-备份包含说说、媒体、对话、卡片、自定义技能、头像、自定义 API 配置等；**不包含 API Key**，需要在桌面版重新填写。第一次打开桌面版时，更新公告底部也提供「迁移网页版数据」快捷入口。
+备份包含说说、媒体、对话、计划表、计划图片、卡片、自定义技能、头像、自定义 API 配置等；**不包含 API Key**，需要在桌面版重新填写。第一次打开桌面版时，更新公告底部也提供「迁移网页版数据」快捷入口。
 
 ### 发布自动更新
 
@@ -197,7 +205,10 @@ Web 版更新的是服务器上的静态文件。只要仍然使用同一个协�
 - 升级前快照会复制一份完整的 IndexedDB / blob_storage，媒体很多时会额外占用相当于当前数据的磁盘空间；快照只保留最近 3 份，可在设置中打开快照目录手动清理。
 - 没有后端，不能多端同步；换设备请用导出/导入备份。
 - 备份文件使用 Base64 保存媒体，数据多时 JSON 会很大。
-- 自动更新依赖 GitHub Releases。v0.3.0 已作为正式 Release 发布；之后的新版本仍需按上面的步骤上传安装包和 `latest.yml`。
+- 计划表的封面和图片同样保存在 IndexedDB；导出的互动 HTML 为了保持轻量不包含图片，PNG 导出会包含图片。
+- 计划正文的富文本编辑使用浏览器内置编辑能力，暂不支持撤销/重做和更多排版格式。
+- 计划表目前按更新时间排列，暂不支持搜索和拖拽排序。
+- 自动更新依赖 GitHub Releases；发布新版本时需要按上面的步骤上传安装包和 `latest.yml`。
 
 ## 下一步
 
@@ -213,7 +224,7 @@ Web 版更新的是服务器上的静态文件。只要仍然使用同一个协�
 - Electron + electron-builder + electron-updater
 - Dexie（IndexedDB）本地数据
 - react-markdown + remark-gfm 渲染模型回答
-- Canvas 生成卡片 PNG
+- Canvas 生成卡片 PNG；html-to-image 导出计划表 PNG
 - date-fns、lucide-react
 - 无 UI 框架，样式集中在 `src/styles.css`
 
@@ -234,6 +245,7 @@ src/
   db.ts                    Dexie 数据表与读写
   skills.ts                内置技能与技能解析
   cards.ts                 卡片模板、文字与 PNG 导出
+  planExport.ts            计划表富文本清理、互动 HTML 与 PNG 导出
   backup.ts                备份导出/恢复
   llm.ts                   大模型流式请求与演示模式
   desktop.ts               桌面桥接类型与能力检测
@@ -242,8 +254,9 @@ src/
   hooks.ts                 路由、object URL
   contexts/                设置、Toast、确认框、音乐播放器
   components/chat/         技能库、技能编辑、卡片编辑与卡片库
+  components/plans/        计划编辑、富文本、计划条与图片预览
   components/              布局、启动错误、更新公告、音乐、模态框、博客组件
-  pages/                   说说 / 对话 / 设置
+  pages/                   说说 / 对话 / 计划表 / 设置
 electron-builder.yml       Windows 安装包与 GitHub 更新配置
 build/icon.svg | icon.png  应用图标
 ```

@@ -4,6 +4,7 @@ import type { PageKey } from './types'
 function readPage(): PageKey {
   const hash = window.location.hash.replace(/^#\/?/, '')
   if (hash === 'chat' || hash === 'assistant') return 'chat'
+  if (hash === 'plans' || hash === 'plan') return 'plans'
   if (hash === 'settings') return 'settings'
   return 'blog'
 }

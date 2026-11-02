@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   History,
+  ListChecks,
   LockKeyhole,
   MessageSquare,
   Moon,
@@ -22,6 +23,7 @@ interface SidebarProps {
 const NAV_ITEMS: { key: PageKey; label: string; icon: typeof NotebookPen }[] = [
   { key: 'blog', label: '说说', icon: NotebookPen },
   { key: 'chat', label: '对话', icon: MessageSquare },
+  { key: 'plans', label: '计划表', icon: ListChecks },
   { key: 'settings', label: '设置', icon: Settings2 },
 ]
 

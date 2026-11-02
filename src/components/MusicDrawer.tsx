@@ -1,7 +1,18 @@
-import { useRef, type ChangeEvent } from 'react'
-import { Music2, Pause, Play, Trash2, Upload, X } from 'lucide-react'
+import { useRef, useState, type ChangeEvent } from 'react'
+import {
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  Music2,
+  Pause,
+  Play,
+  RotateCcw,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { useConfirm } from '../contexts/ConfirmContext'
-import { useMusic } from '../contexts/MusicContext'
+import { useMusic, type RepeatMode } from '../contexts/MusicContext'
 import { formatDuration } from '../utils'
 
 export function MusicDrawer() {
@@ -11,14 +22,19 @@ export function MusicDrawer() {
     isPlaying,
     drawerOpen,
     importing,
+    repeat,
     setDrawerOpen,
     playTrack,
     toggle,
     importFiles,
     removeTrack,
+    setRepeat,
+    moveTrack,
+    resetOrder,
   } = useMusic()
   const { confirm } = useConfirm()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [reorderMode, setReorderMode] = useState(false)
 
   if (!drawerOpen) return null
 
@@ -70,6 +86,38 @@ export function MusicDrawer() {
           <span className="muted">MP3 / FLAC / WAV / M4A 等</span>
         </div>
 
+        <div className="drawer-playback">
+          <label className="drawer-mode">
+            <span>播放模式</span>
+            <select
+              value={repeat}
+              onChange={(event) => setRepeat(event.target.value as RepeatMode)}
+              aria-label="播放模式"
+            >
+              <option value="off">顺序播放</option>
+              <option value="all">列表循环</option>
+              <option value="one">单曲循环</option>
+            </select>
+          </label>
+          <button
+            className={`btn btn-ghost btn-sm ${reorderMode ? 'active' : ''}`}
+            onClick={() => setReorderMode((prev) => !prev)}
+          >
+            <ArrowUpDown size={14} />
+            {reorderMode ? '完成排序' : '调整顺序'}
+          </button>
+          {reorderMode && (
+            <button className="btn btn-ghost btn-sm" onClick={resetOrder}>
+              <RotateCcw size={14} /> 默认顺序
+            </button>
+          )}
+        </div>
+        {reorderMode && (
+          <p className="drawer-reorder-hint">
+            用 ↑ ↓ 调整播放顺序，调整后会立即保存；当前播放不会中断。
+          </p>
+        )}
+
         <div className="track-list">
           {tracks.length === 0 ? (
             <div className="drawer-empty">
@@ -80,7 +128,7 @@ export function MusicDrawer() {
               <span>导入你电脑里的音乐文件，它们只保存在当前浏览器。</span>
             </div>
           ) : (
-            tracks.map((track) => {
+            tracks.map((track, index) => {
               const active = current?.id === track.id
               return (
                 <div
@@ -115,6 +163,28 @@ export function MusicDrawer() {
                       <i />
                     </span>
                   )}
+                  {reorderMode && (
+                    <div className="track-order-actions" onClick={(event) => event.stopPropagation()}>
+                      <button
+                        className="icon-btn icon-btn-xs"
+                        onClick={() => moveTrack(track.id, -1)}
+                        disabled={index === 0}
+                        aria-label="上移这首音乐"
+                        title="上移"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        className="icon-btn icon-btn-xs"
+                        onClick={() => moveTrack(track.id, 1)}
+                        disabled={index === tracks.length - 1}
+                        aria-label="下移这首音乐"
+                        title="下移"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
+                  )}
                   <button
                     className="icon-btn danger-hover"
                     onClick={(event) => {
@@ -133,7 +203,7 @@ export function MusicDrawer() {
         </div>
 
         <div className="drawer-note">
-          网页版关闭浏览器后音乐就会停止。打包成桌面版后，可以通过托盘常驻后台播放。
+          网页版关闭浏览器后音乐就会停止；桌面版目前关闭窗口也会退出，托盘常驻还在计划中。
         </div>
       </aside>
     </>

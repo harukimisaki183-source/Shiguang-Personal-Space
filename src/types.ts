@@ -1,4 +1,4 @@
-export type PageKey = 'blog' | 'chat' | 'settings'
+export type PageKey = 'blog' | 'chat' | 'plans' | 'settings'
 
 export const CATEGORIES = ['日常', '面试', '学习', '心情', '其他'] as const
 export type Category = (typeof CATEGORIES)[number]
@@ -101,6 +101,50 @@ export interface Track {
   mime: string
   size: number
   duration: number
+  blob: Blob
+  createdAt: number
+}
+
+/* ----------------------------- 计划表 ----------------------------- */
+
+export type PlanBlockType = 'h1' | 'h2' | 'h3' | 'p'
+
+export interface PlanBlock {
+  id: string
+  type: PlanBlockType
+  /** 受限的富文本：加粗、颜色、换行 */
+  html: string
+}
+
+export interface Plan {
+  id: string
+  title: string
+  /** 目录封面（压缩后的图片 Blob） */
+  cover?: Blob
+  coverName?: string
+  blocks: PlanBlock[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface PlanItem {
+  id: string
+  planId: string
+  text: string
+  checked: boolean
+  details: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface PlanImage {
+  id: string
+  planId: string
+  itemId: string
+  name: string
+  mime: string
+  size: number
+  caption: string
   blob: Blob
   createdAt: number
 }

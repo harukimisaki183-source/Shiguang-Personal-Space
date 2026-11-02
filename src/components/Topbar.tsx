@@ -11,6 +11,7 @@ interface TopbarProps {
 const TITLES: Record<PageKey, { title: string; subtitle: string }> = {
   blog: { title: '说说', subtitle: '记录今天，也记录成长' },
   chat: { title: '对话', subtitle: '和 AI 一起练习、复盘，也记录今天' },
+  plans: { title: '计划表', subtitle: '把想做的事，拆成一步步可以打勾的计划' },
   settings: { title: '设置', subtitle: '让这个空间更像你' },
 }
 

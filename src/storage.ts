@@ -94,6 +94,7 @@ export const STORAGE_KEYS = {
   lastSeenVersion: LAST_SEEN_KEY,
   seeded: 'interview-hub:seeded',
   lastTrack: 'interview-hub:last-track',
+  trackOrder: 'interview-hub:track-order',
   volume: 'interview-hub:volume',
   theme: 'interview-hub:theme',
 } as const

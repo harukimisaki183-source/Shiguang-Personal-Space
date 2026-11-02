@@ -7,6 +7,9 @@ import type {
   DayCard,
   MediaItem,
   Note,
+  Plan,
+  PlanImage,
+  PlanItem,
   Settings,
   Skill,
   Track,
@@ -21,9 +24,17 @@ interface BackupTrack extends Omit<Track, 'blob'> {
   dataUrl: string
 }
 
+interface BackupPlan extends Omit<Plan, 'cover'> {
+  coverDataUrl?: string
+}
+
+interface BackupPlanImage extends Omit<PlanImage, 'blob'> {
+  dataUrl: string
+}
+
 interface BackupPayload {
   app: 'interview-hub'
-  format: 1 | 2
+  format: 1 | 2 | 3
   appVersion: string
   exportedAt: number
   notes: Note[]
@@ -33,6 +44,9 @@ interface BackupPayload {
   tracks: BackupTrack[]
   skills?: Skill[]
   cards?: DayCard[]
+  plans?: BackupPlan[]
+  planItems?: PlanItem[]
+  planImages?: BackupPlanImage[]
   settings: Omit<Settings, 'apiKey'>
 }
 
@@ -47,6 +61,7 @@ export interface BackupResult {
     tracks: number
     cards: number
     skills: number
+    plans: number
   }
 }
 
@@ -56,15 +71,19 @@ export interface RestoreResult {
 }
 
 export async function buildBackup(settings: Settings): Promise<BackupResult> {
-  const [notes, mediaItems, chats, messages, trackItems, customSkills, cards] = await Promise.all([
-    db.notes.toArray(),
-    db.media.toArray(),
-    db.chats.toArray(),
-    db.messages.toArray(),
-    db.tracks.toArray(),
-    db.skills.toArray(),
-    db.cards.toArray(),
-  ])
+  const [notes, mediaItems, chats, messages, trackItems, customSkills, cards, planItems, planImages] =
+    await Promise.all([
+      db.notes.toArray(),
+      db.media.toArray(),
+      db.chats.toArray(),
+      db.messages.toArray(),
+      db.tracks.toArray(),
+      db.skills.toArray(),
+      db.cards.toArray(),
+      db.planItems.toArray(),
+      db.planImages.toArray(),
+    ])
+  const planRecords = await db.plans.toArray()
 
   const media: BackupMedia[] = []
   for (const item of mediaItems) {
@@ -78,10 +97,24 @@ export async function buildBackup(settings: Settings): Promise<BackupResult> {
     tracks.push({ ...rest, dataUrl: await blobToDataUrl(blob) })
   }
 
+  const plans: BackupPlan[] = []
+  for (const plan of planRecords) {
+    const { cover, ...rest } = plan
+    plans.push(
+      cover ? { ...rest, coverDataUrl: await blobToDataUrl(cover) } : { ...rest },
+    )
+  }
+
+  const backupPlanImages: BackupPlanImage[] = []
+  for (const item of planImages) {
+    const { blob, ...rest } = item
+    backupPlanImages.push({ ...rest, dataUrl: await blobToDataUrl(blob) })
+  }
+
   const { apiKey: _apiKey, ...safeSettings } = settings
   const payload: BackupPayload = {
     app: 'interview-hub',
-    format: 2,
+    format: 3,
     appVersion: APP_VERSION,
     exportedAt: Date.now(),
     notes,
@@ -91,6 +124,9 @@ export async function buildBackup(settings: Settings): Promise<BackupResult> {
     tracks,
     skills: customSkills,
     cards,
+    plans,
+    planItems,
+    planImages: backupPlanImages,
     settings: safeSettings,
   }
 
@@ -107,6 +143,7 @@ export async function buildBackup(settings: Settings): Promise<BackupResult> {
       tracks: tracks.length,
       cards: cards.length,
       skills: customSkills.length,
+      plans: plans.length,
     },
   }
 }
@@ -148,6 +185,15 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
   if (payload.cards !== undefined && !Array.isArray(payload.cards)) {
     throw new Error('备份中的卡片数据不完整')
   }
+  if (payload.plans !== undefined && !Array.isArray(payload.plans)) {
+    throw new Error('备份中的计划表数据不完整')
+  }
+  if (payload.planItems !== undefined && !Array.isArray(payload.planItems)) {
+    throw new Error('备份中的计划条数据不完整')
+  }
+  if (payload.planImages !== undefined && !Array.isArray(payload.planImages)) {
+    throw new Error('备份中的计划图片数据不完整')
+  }
 
   const media: MediaItem[] = []
   for (const item of payload.media) {
@@ -163,6 +209,23 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
     tracks.push({ ...rest, blob: dataUrlToBlob(dataUrl) })
   }
 
+  const plans: Plan[] = (payload.plans ?? []).map((plan) => {
+    const { coverDataUrl, ...rest } = plan
+    return {
+      ...rest,
+      blocks: Array.isArray(rest.blocks) ? rest.blocks : [],
+      ...(coverDataUrl ? { cover: dataUrlToBlob(coverDataUrl) } : {}),
+    }
+  })
+  const planItems: PlanItem[] = payload.planItems ?? []
+
+  const planImages: PlanImage[] = []
+  for (const item of payload.planImages ?? []) {
+    const { dataUrl, ...rest } = item
+    if (!dataUrl) throw new Error('备份中的计划图片数据不完整')
+    planImages.push({ ...rest, blob: dataUrlToBlob(dataUrl) })
+  }
+
   // 兼容 0.1.x 备份里的旧 mode 字段
   const chats: Chat[] = payload.chats.map((chat) => ({
     ...chat,
@@ -176,7 +239,18 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
 
   await db.transaction(
     'rw',
-    [db.notes, db.media, db.chats, db.messages, db.tracks, db.skills, db.cards],
+    [
+      db.notes,
+      db.media,
+      db.chats,
+      db.messages,
+      db.tracks,
+      db.skills,
+      db.cards,
+      db.plans,
+      db.planItems,
+      db.planImages,
+    ],
     async () => {
       await Promise.all([
         db.notes.clear(),
@@ -186,6 +260,9 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
         db.tracks.clear(),
         db.skills.clear(),
         db.cards.clear(),
+        db.plans.clear(),
+        db.planItems.clear(),
+        db.planImages.clear(),
       ])
       if (payload.notes.length) await db.notes.bulkAdd(payload.notes)
       if (media.length) await db.media.bulkAdd(media)
@@ -194,6 +271,9 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
       if (tracks.length) await db.tracks.bulkAdd(tracks)
       if (customSkills.length) await db.skills.bulkAdd(customSkills)
       if (cards.length) await db.cards.bulkAdd(cards)
+      if (plans.length) await db.plans.bulkAdd(plans)
+      if (planItems.length) await db.planItems.bulkAdd(planItems)
+      if (planImages.length) await db.planImages.bulkAdd(planImages)
     },
   )
 
@@ -206,6 +286,7 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
       tracks: tracks.length,
       cards: cards.length,
       skills: customSkills.length,
+      plans: plans.length,
     },
     settings: payload.settings,
   }

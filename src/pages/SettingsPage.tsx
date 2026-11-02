@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Info,
   KeyRound,
+  ListChecks,
   Loader2,
   Monitor,
   Moon,
@@ -105,6 +106,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
     tracks: 0,
     cards: 0,
     skills: 0,
+    plans: 0,
   }
   const counts = useLiveQuery(() => getContentCounts(), [], emptyCounts) ?? emptyCounts
 
@@ -336,7 +338,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
     try {
       const result = await exportBackup(settings)
       showToast(
-        `已导出 ${result.counts.notes} 条记录、${result.counts.cards} 张卡片、${result.counts.tracks} 首音乐（${formatBytes(result.blob.size)}）`,
+        `已导出 ${result.counts.notes} 条记录、${result.counts.cards} 张卡片、${result.counts.plans} 个计划表、${result.counts.tracks} 首音乐（${formatBytes(result.blob.size)}）`,
         'success',
       )
     } catch (error) {
@@ -374,7 +376,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
         updateSettings(merged)
       }
       showToast(
-        `恢复完成：${result.counts.notes} 条记录、${result.counts.chats} 个对话、${result.counts.cards} 张卡片、${result.counts.tracks} 首音乐`,
+        `恢复完成：${result.counts.notes} 条记录、${result.counts.chats} 个对话、${result.counts.cards} 张卡片、${result.counts.plans} 个计划表、${result.counts.tracks} 首音乐`,
         'success',
       )
     } catch (error) {
@@ -387,7 +389,7 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
   async function handleClear() {
     const ok = await confirm({
       title: '清空所有内容？',
-      message: '所有说说、图片、视频、对话、卡片、自定义技能和音乐都会从本机删除，设置会保留。建议先导出备份。',
+      message: '所有说说、图片、视频、对话、计划表、卡片、自定义技能和音乐都会从本机删除，设置会保留。建议先导出备份。',
       confirmText: '全部清空',
       danger: true,
     })
@@ -753,6 +755,11 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
                 <CalendarDays size={15} />
                 <strong>{counts.cards}</strong>
                 <span>张卡片</span>
+              </div>
+              <div>
+                <ListChecks size={15} />
+                <strong>{counts.plans}</strong>
+                <span>个计划表</span>
               </div>
               <div>
                 <HardDrive size={15} />
