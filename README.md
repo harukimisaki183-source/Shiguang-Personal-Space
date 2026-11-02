@@ -2,7 +2,7 @@
 
 一个「本地优先」的个人空间：记录说说、和 AI 对话、制定计划表、做每天的卡片，听自己的音乐。现在同时提供 Web 版和 Windows 桌面版。
 
-> 当前版本 **0.4.1**。安装包见 [GitHub Releases](https://github.com/harukimisaki183-source/Shiguang-Personal-Space/releases/latest)。桌面安装包未做代码签名，Windows 可能提示「未知发布者」，可点「更多信息 → 仍要运行」。
+> 当前版本 **0.4.2**。安装包见 [GitHub Releases](https://github.com/harukimisaki183-source/Shiguang-Personal-Space/releases/latest)。桌面安装包未做代码签名，Windows 可能提示「未知发布者」，可点「更多信息 → 仍要运行」。
 
 ## 已实现
 
@@ -41,7 +41,7 @@
   - API Key 使用 Electron `safeStorage`（Windows DPAPI）加密，不写入 localStorage 或备份
   - 大模型请求由桌面主进程代理，不受浏览器 CORS 限制
   - 设置中可查看数据目录、快照，检查并安装 GitHub Releases 上的更新
-  - 设置中提供「卸载拾光」按钮，启动安装包自带的卸载程序，删除程序文件和快捷方式，保留本机数据目录
+  - 设置中提供「卸载拾光」按钮，连续确认两次后启动安装包自带的卸载程序，删除程序文件和快捷方式，保留本机数据目录
   - 数据库打开失败时显示恢复提示，而不是空白页
 - **其他**
   - 首次启动更新公告，版本变化时再次提示
@@ -104,7 +104,7 @@ npm install
 
 设置页的「桌面版与更新」可以直接打开数据目录和快照目录。快照是明文本地副本，不会上传，清理磁盘时请按需删除。
 
-「卸载拾光」会启动安装包自带的卸载程序，删除程序文件、开始菜单和桌面快捷方式，但**不会删除 `%APPDATA%\Shiguang`**。如需彻底清理本机内容，请在卸载完成后手动删除该目录。
+「卸载拾光」需要连续确认两次，随后启动安装包自带的卸载程序，删除程序文件、开始菜单和桌面快捷方式，但**不会删除 `%APPDATA%\Shiguang`**。如需彻底清理本机内容，请在卸载完成后手动删除该目录。
 
 安装版使用 `Shiguang`；`npm run dev:desktop` 使用独立的 `Shiguang Dev`，避免开发内容混进正式数据。开发或测试时还可以用 `SHIGUANG_USER_DATA` 指向一个临时目录。
 

@@ -9,11 +9,25 @@ export interface ChangelogEntry {
   fixed: string[]
 }
 
-export const APP_VERSION = '0.4.1'
+export const APP_VERSION = '0.4.2'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: APP_VERSION,
+    date: '2026-11-02',
+    title: '卸载保护 · 再确认一次',
+    summary:
+      '卸载拾光前需要连续确认两次：第一次说明会删除程序文件和快捷方式，第二次再次提醒应用即将关闭，避免误触。本机数据目录仍然保留。',
+    highlights: [
+      { icon: '🛡️', title: '双重确认', text: '任意一步取消都不会执行卸载' },
+      { icon: '💾', title: '数据保留', text: '两次提示都说明本机内容不会被删除' },
+    ],
+    added: ['卸载拾光增加第二次确认，最终确认后才会启动卸载程序'],
+    improved: ['第二次确认会再次提醒应用即将关闭、未保存的编辑会丢失'],
+    fixed: ['本版本暂无问题修复记录'],
+  },
+  {
+    version: '0.4.1',
     date: '2026-11-02',
     title: '卸载入口 · 一键移除程序文件',
     summary:

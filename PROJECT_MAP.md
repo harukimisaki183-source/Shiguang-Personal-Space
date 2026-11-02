@@ -3,7 +3,7 @@
 > 这份文件是给 Claude / 未来的维护者看的，不是用户文档。目标：任何一次优化前，能在几分钟内重新建立完整心智模型。
 > 用户向说明在 `README.md`；这里记录的是「东西在哪、怎么连、什么不能碰、改哪里」。
 >
-> 最后扫描：2026-11-02 · 对应版本 **0.4.1**
+> 最后扫描：2026-11-02 · 对应版本 **0.4.2**
 
 ---
 
@@ -18,7 +18,7 @@
 - 分支：`main`（本地与 origin 同步）
 - 产品名/可执行文件：拾光 / `Shiguang.exe`
 - appId：`com.harukimisaki.shiguang`
-- 当前版本：`0.4.1`（`package.json` / `src/changelog.ts` / `README.md` 三处）
+- 当前版本：`0.4.2`（`package.json` / `src/changelog.ts` / `README.md` 三处）
 
 ---
 
@@ -209,7 +209,7 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 
 ### 桌面卸载
 
-- 入口只在安装版的「设置 → 桌面版与更新」显示；二次确认后调用 `desktop.app.uninstall()`。
+- 入口只在安装版的「设置 → 桌面版与更新」显示；连续两次确认（第一次说明影响，第二次最终确认，取消任一次都会中止）后才调用 `desktop.app.uninstall()`。
 - 主进程 `app:uninstall` 校验来源、Windows 平台和 `app.isPackaged`，从 `process.execPath` 同目录查找 NSIS 生成的 `Uninstall <exe>.exe`。
 - 找到后 `spawn(uninstaller, ['/currentuser'], { detached: true, stdio: 'ignore' })`，400ms 后 `app.quit()`，让卸载向导独立运行。
 - 卸载只删除程序文件和快捷方式；`electron-builder.yml` 保持 `deleteAppDataOnUninstall: false`，`%APPDATA%\Shiguang` 数据保留。找不到卸载器时提示改用 Windows「设置 → 应用」。
@@ -359,6 +359,19 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 - `npm run build:desktop` 生成 `release/Shiguang-Setup-0.4.1.exe`（122,195,094 字节，SHA-256 `9AB5B68ECF1DC11610BAB45E07830A0BCAB2B48D0326D4CF5890B1675668AB1C`）；打包后的 `Shiguang.exe` 启动日志确认版本 0.4.1、渲染层就绪。
 - 该版本目前只在本地构建，**尚未发布 GitHub Release**。
 - 未执行真实 NSIS 卸载流程，以免影响本机已安装的 0.3.0；仍需在 0.4.1 安装版中确认卸载向导、程序文件和快捷方式删除、`%APPDATA%\Shiguang` 数据保留。
+
+### 0.4.2 验证记录（2026-11-02）
+
+- `SettingsPage` 的卸载流程增加第二次确认：第一次保留完整影响说明，第二次提醒应用会关闭且未保存编辑会丢失，并再次说明数据目录仍保留。
+- `npm version 0.4.2 --no-git-tag-version`；`src/changelog.ts` 新增 0.4.2 条目，旧的卸载条目固定为 0.4.1。
+- `npm run typecheck`、`npm run build`、`npm run pack:desktop` 通过。
+- 对 `release/win-unpacked/Shiguang.exe` 做 CDP 冒烟测试：
+  - 点击「卸载拾光」后出现第一次确认「卸载拾光？」，说明会删除程序文件并保留数据目录。
+  - 点「继续卸载」后出现第二次确认「最后确认一次」，提醒应用即将关闭、未保存编辑会丢失。
+  - 在第二次确认点「不卸载了」：确认框关闭，应用继续运行，没有弹出提示，也没有调用卸载 IPC。
+  - 再次走完两次确认并点「确认卸载」：到达主进程，未安装目录没有卸载器时显示「没有找到卸载程序」兜底提示，应用保持运行。
+- `npm run build:desktop` 生成 `release/Shiguang-Setup-0.4.2.exe`（122,195,414 字节，SHA-256 `C72FFD8B32B3D533E9F4DF1D61F7F3775B6C2C4A100BBD786A11D7F7B4E6670B`），`latest.yml` 记录版本 0.4.2。
+- 该版本仍未发布 GitHub Release；真实 NSIS 卸载流程继续待安装版验证。
 
 ---
 

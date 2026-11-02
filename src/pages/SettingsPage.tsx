@@ -349,6 +349,20 @@ export function SettingsPage({ onShowUpdateLog }: SettingsPageProps) {
       danger: true,
     })
     if (!ok) return
+    const finalOk = await confirm({
+      title: '最后确认一次',
+      message: (
+        <>
+          点击「确认卸载」后会立即启动卸载程序并关闭拾光，未保存的编辑会丢失。
+          <br />
+          本机数据目录中的内容仍会保留，卸载后可以重新安装继续使用。
+        </>
+      ),
+      confirmText: '确认卸载',
+      cancelText: '不卸载了',
+      danger: true,
+    })
+    if (!finalOk) return
     setUninstalling(true)
     try {
       const result = await desktop.app.uninstall()
