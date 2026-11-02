@@ -334,7 +334,11 @@ Web 版没有 Electron 层：`llm.ts` 直接 `fetch`（可能被 CORS 拦截）�
 
 - `npm run typecheck`、`npm run build` 通过。
 - 用 headless Edge + Playwright 做过一轮冒烟测试：新建计划/封面、正文加粗与颜色、计划条勾选/取消、详情展开、图片与备注、放大预览、互动 HTML（checkbox 可勾选、详情可展开、无 `<img>`）、PNG 下载（有效 PNG 签名）、刷新后计划与勾选状态保留、播放模式选择、手动排序持久化、上次播放曲目恢复。
-- 尚未覆盖：桌面版打包、备份导入恢复、超长计划 PNG、图片很多时的导出性能。
+- `npm run build:desktop` 通过：生成 `Shiguang-Setup-0.4.0.exe`（122,194,343 字节）、`latest.yml`、`.blockmap`；exe 版本信息为 0.4.0。
+- 用独立 `SHIGUANG_USER_DATA` 启动 `release/win-unpacked/Shiguang.exe`：主进程日志显示「启动拾光 0.4.0」「渲染层就绪」，IndexedDB 与 localStorage 正常创建；未触碰正式 `%APPDATA%\Shiguang` 数据。
+- 已发布 GitHub Release `v0.4.0`（Latest），上传 exe、`latest.yml`、`.blockmap`；远端 `latest.yml` 与本地构建一致。
+- 安装包 SHA-256：`D0E2968644E9E65637FFCDE84F7A498EE01AAD4C3D3BB72409F258E0B71A4BCA`。
+- 尚未覆盖：用 0.3.0 安装版实际执行「检查更新 → 下载 → 重启安装」全流程；备份导入恢复；超长计划 PNG；图片很多时的导出性能；自定义颜色选择器的直接 E2E。
 
 ---
 
